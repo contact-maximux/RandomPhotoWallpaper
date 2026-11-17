@@ -1,8 +1,7 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.application") version "8.7.3" apply false
+    id("org.jetbrains.kotlin.android") version "2.0.21" apply false
 }
-
 android {
     namespace = "com.example.randomphotowallpaper"
     compileSdk = 35
@@ -14,8 +13,13 @@ android {
         versionCode = 1
         versionName = "1.0"
     }
-}
 
-dependencies {
-    implementation("androidx.exifinterface:exifinterface:1.3.7")
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
