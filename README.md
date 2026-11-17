@@ -13,10 +13,8 @@ A minimal Android launcher app. Tap its icon to choose a random image from a fol
 
 ## Build
 1. Open this folder in Android Studio (recent version).
-2. Allow Gradle sync to finish.
-3. Connect your Android phone with USB debugging enabled, or choose **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
-4. Install the generated APK.
-5. Tap the app icon, select your Pictures folder once, and grant access.
+2. Allow Gradle sync to finish
+3. Install the generated APK.
 
 ## Notes
 - Android's system folder picker is required for the one-time folder permission.
