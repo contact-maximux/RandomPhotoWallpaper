@@ -1,7 +1,9 @@
+
 plugins {
-    id("com.android.application") version "8.7.3" apply false
-    id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
 }
+
 android {
     namespace = "com.example.randomphotowallpaper"
     compileSdk = 35
@@ -22,4 +24,8 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+dependencies {
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }
