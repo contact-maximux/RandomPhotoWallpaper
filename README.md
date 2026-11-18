@@ -1,4 +1,4 @@
-# Random Photo Wallpaper
+# Invisible Wallpaper Changer
 
 A minimal Android launcher app. Tap its icon to choose a random image from the selected folders and set a randomly positioned crop as both the Home and Lock Screen wallpaper.
 
