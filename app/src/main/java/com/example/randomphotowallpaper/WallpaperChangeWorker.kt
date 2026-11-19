@@ -642,20 +642,23 @@ class WallpaperChangeWorker(
     
 val firstTwoLines = lines.take(2)
 
-val visibleLines: List<String> =
-    if (lines.size > 2 && firstTwoLines.isNotEmpty()) {
+        val visibleLines: List<String> =
+            if (lines.size > 2 && firstTwoLines.isNotEmpty()) {
 
-        val shortenedLastLine = generateSequence(firstTwoLines.last()) { line ->
-            if (line.isEmpty()) null else line.dropLast(1).trimEnd()
-        }.firstOrNull {
-            quotePaint.measureText("$it…") <= maxWidth
-        } ?: ""
+                val shortenedLastLine = generateSequence(firstTwoLines.last()) { line ->
+                    if (line.isEmpty()) null else line.dropLast(1).trimEnd()
+                }.firstOrNull {
+                    quotePaint.measureText("$it…") <= maxWidth
+                } ?: ""
 
-        firstTwoLines.dropLast(1) + "$shortenedLastLine…"
+                listOf(
+                    firstTwoLines.first(),
+                    "$shortenedLastLine…"
+                )
 
-    } else {
-        firstTwoLines
-    }
+            } else {
+                firstTwoLines
+            }
 
 
         val lineHeight = textSize * 1.35f
