@@ -776,8 +776,7 @@ val calendarDate: Calendar = today.clone() as Calendar
             val left = margin + index * (tileWidth + gap)
             val right = left + tileWidth
 
-            val dayOfWeek = date.get(Calendar.DAY_OF_WEEK)
-
+val dayOfWeek = calendarDate.get(Calendar.DAY_OF_WEEK)
             val isWeekend =
                 dayOfWeek == Calendar.SATURDAY ||
                 dayOfWeek == Calendar.SUNDAY
