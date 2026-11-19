@@ -1,4 +1,3 @@
-
 package com.example.randomphotowallpaper
 
 import android.app.Notification
@@ -569,7 +568,7 @@ class WallpaperChangeWorker(
         val density = context.resources.displayMetrics.scaledDensity
 
         val textSize = 14f * density
-        // val authorSize = 11f * density
+        val authorSize = 11f * density
 
         val left = width * 0.55f
         val maxWidth = width * 0.40f
@@ -588,30 +587,18 @@ class WallpaperChangeWorker(
             )
         }
 
-
-
-
-
-
-
-
-
-
-
-
-        
-        // val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        //     color = Color.WHITE
-        //     textSize = authorSize
-        //     typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        //     textAlign = Paint.Align.LEFT
-        //     setShadowLayer(
-        //         3f * density,
-        //         1f * density,
-        //         1f * density,
-        //         Color.BLACK
-        //     )
-        // }
+        val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = authorSize
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            textAlign = Paint.Align.LEFT
+            setShadowLayer(
+                3f * density,
+                1f * density,
+                1f * density,
+                Color.BLACK
+            )
+        }
 
         val words = selected.first.split(" ")
         val lines = mutableListOf<String>()
@@ -639,8 +626,7 @@ class WallpaperChangeWorker(
             lines.add(currentLine)
         }
 
-    
-val firstTwoLines = lines.take(2)
+        val firstTwoLines = lines.take(2)
 
         val visibleLines: List<String> =
             if (lines.size > 2 && firstTwoLines.isNotEmpty()) {
@@ -660,7 +646,6 @@ val firstTwoLines = lines.take(2)
                 firstTwoLines
             }
 
-
         val lineHeight = textSize * 1.35f
 
         visibleLines.forEachIndexed { index, line ->
@@ -672,17 +657,16 @@ val firstTwoLines = lines.take(2)
             )
         }
 
-    //     canvas.drawText(
-    //         "— ${selected.second}",
-    //         left,
-    //         top + visibleLines.size * lineHeight + 4f * density,
-    //         authorPaint
-    //     )
+        canvas.drawText(
+            "— ${selected.second}",
+            left,
+            top + visibleLines.size * lineHeight + 4f * density,
+            authorPaint
+        )
 
-    //     quotePaint.clearShadowLayer()
-    //     authorPaint.clearShadowLayer()
-    // }
-    quotePaint.clearShadowLayer()
+        quotePaint.clearShadowLayer()
+        authorPaint.clearShadowLayer()
+    }
 
     // Updated minimal transparent 10-day calendar strip.
     private fun drawCalendarStrip(
@@ -791,12 +775,14 @@ val firstTwoLines = lines.take(2)
             Locale.getDefault()
         )
 
-val calendarDate: Calendar = today.clone() as Calendar
+        // Changed from val → var to allow mutation via .add()
+        var calendarDate: Calendar = today.clone() as Calendar
+
         for (index in 0 until 10) {
             val left = margin + index * (tileWidth + gap)
             val right = left + tileWidth
 
-val dayOfWeek = calendarDate.get(Calendar.DAY_OF_WEEK)
+            val dayOfWeek = calendarDate.get(Calendar.DAY_OF_WEEK)
             val isWeekend =
                 dayOfWeek == Calendar.SATURDAY ||
                 dayOfWeek == Calendar.SUNDAY
