@@ -511,7 +511,7 @@ class WallpaperChangeWorker(
 
         val canvas = Canvas(darkened)
 
-        // Existing 20% black wallpaper overlay
+        // Existing 20% black wallpaper overlay.
         canvas.drawRect(
             0f,
             0f,
@@ -523,7 +523,15 @@ class WallpaperChangeWorker(
             }
         )
 
-        // Draw calendar after crop, resize and wallpaper overlay.
+        // Draw quote below camera area in upper-right half.
+        drawQuoteOverlay(
+            context,
+            canvas,
+            darkened.width,
+            darkened.height
+        )
+
+        // Draw calendar at bottom.
         drawCalendarStrip(
             context,
             canvas,
@@ -532,6 +540,183 @@ class WallpaperChangeWorker(
         )
 
         return darkened
+    }
+
+    // Random quote in the upper-right half of the wallpaper.
+    private fun drawQuoteOverlay(
+        context: Context,
+        canvas: Canvas,
+        width: Int,
+        height: Int
+    ) {
+        val quotes = listOf(
+            Pair(
+                "The journey of a thousand miles begins with a single step.",
+                "Lao Tzu"
+            ),
+            Pair(
+                "Believe you can and you're halfway there.",
+                "Theodore Roosevelt"
+            ),
+            Pair(
+                "It always seems impossible until it's done.",
+                "Nelson Mandela"
+            ),
+            Pair(
+                "What you think, you become.",
+                "Buddha"
+            ),
+            Pair(
+                "Simplicity is the ultimate sophistication.",
+                "Leonardo da Vinci"
+            ),
+            Pair(
+                "The secret of getting ahead is getting started.",
+                "Mark Twain"
+            ),
+            Pair(
+                "Great things are done by a series of small things brought together.",
+                "Vincent van Gogh"
+            ),
+            Pair(
+                "Be yourself; everyone else is already taken.",
+                "Oscar Wilde"
+            ),
+            Pair(
+                "Dream big and dare to fail.",
+                "Norman Vaughan"
+            ),
+            Pair(
+                "Do what you can, with what you have, where you are.",
+                "Theodore Roosevelt"
+            ),
+            Pair(
+                "Stay hungry. Stay foolish.",
+                "Steve Jobs"
+            ),
+            Pair(
+                "In the middle of difficulty lies opportunity.",
+                "Albert Einstein"
+            ),
+            Pair(
+                "Every moment is a fresh beginning.",
+                "T. S. Eliot"
+            ),
+            Pair(
+                "Act as if what you do makes a difference. It does.",
+                "William James"
+            )
+        )
+
+        val selected = quotes.random()
+
+        val density = context.resources.displayMetrics.scaledDensity
+
+        // Font size: maximum 14sp.
+        val textSize = 14f * density
+        val authorSize = 11f * density
+
+        // Right half of screen, below camera area.
+        val left = width * 0.55f
+        val maxWidth = width * 0.40f
+        val top = height * 0.15f
+
+        val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            this.textSize = textSize
+            typeface = Typeface.create(
+                "sans-serif",
+                Typeface.NORMAL
+            )
+            textAlign = Paint.Align.LEFT
+            setShadowLayer(
+                3f * density,
+                1f * density,
+                1f * density,
+                Color.BLACK
+            )
+        }
+
+        val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = authorSize
+            typeface = Typeface.create(
+                "sans-serif-medium",
+                Typeface.NORMAL
+            )
+            textAlign = Paint.Align.LEFT
+            setShadowLayer(
+                3f * density,
+                1f * density,
+                1f * density,
+                Color.BLACK
+            )
+        }
+
+        // Wrap quote into a maximum of two lines.
+        val words = selected.first.split(" ")
+        val lines = mutableListOf<String>()
+        var currentLine = ""
+
+        for (word in words) {
+            val testLine = if (currentLine.isEmpty()) {
+                word
+            } else {
+                "$currentLine $word"
+            }
+
+            if (
+                quotePaint.measureText(testLine) <= maxWidth ||
+                currentLine.isEmpty()
+            ) {
+                currentLine = testLine
+            } else {
+                lines.add(currentLine)
+                currentLine = word
+            }
+        }
+
+        if (currentLine.isNotEmpty()) {
+            lines.add(currentLine)
+        }
+
+        val visibleLines = lines.take(2).toMutableList()
+
+        // Add ellipsis if the quote needs more than two lines.
+        if (lines.size > 2 && visibleLines.isNotEmpty()) {
+            var lastLine = visibleLines.last()
+
+            while (
+                lastLine.isNotEmpty() &&
+                quotePaint.measureText("$lastLine…") > maxWidth
+            ) {
+                lastLine = lastLine.dropLast(1).trimEnd()
+            }
+
+            visibleLines[visibleLines.lastIndex] = "$lastLine…"
+        }
+
+        val lineHeight = textSize * 1.35f
+
+        visibleLines.forEachIndexed { index, line ->
+            canvas.drawText(
+                line,
+                left,
+                top + index * lineHeight,
+                quotePaint
+            )
+        }
+
+        // Author below quote.
+        canvas.drawText(
+            "— ${selected.second}",
+            left,
+            top + visibleLines.size * lineHeight + 4f * density,
+            authorPaint
+        )
+
+        quotePaint.clearShadowLayer()
+        authorPaint.clearShadowLayer()
     }
 
     // Minimal transparent 10-day calendar strip.
