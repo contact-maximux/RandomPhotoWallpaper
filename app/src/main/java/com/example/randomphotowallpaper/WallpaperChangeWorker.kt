@@ -588,6 +588,18 @@ class WallpaperChangeWorker(
             )
         }
 
+
+
+
+
+
+
+
+
+
+
+
+        
         val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textSize = authorSize
