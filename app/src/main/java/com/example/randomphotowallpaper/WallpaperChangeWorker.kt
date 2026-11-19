@@ -16,10 +16,12 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.DocumentsContract
+import android.util.TypedValue
 import androidx.exifinterface.media.ExifInterface
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -32,7 +34,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
@@ -100,7 +104,7 @@ class WallpaperChangeWorker(
                 bitmap.recycle()
             }
 
-            // Record the image only after successfully setting wallpaper.
+            // Record image only after successfully setting wallpaper.
             used.add(chosen.toString())
             writeHistory(context, historyFile, used)
 
@@ -505,21 +509,230 @@ class WallpaperChangeWorker(
 
         scaled.recycle()
 
-        Canvas(darkened).drawRect(
+        val canvas = Canvas(darkened)
+
+        // Existing 20% black wallpaper overlay
+        canvas.drawRect(
             0f,
             0f,
             darkened.width.toFloat(),
             darkened.height.toFloat(),
-            Paint().apply {
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.BLACK
                 alpha = 51
             }
         )
 
+        // Draw calendar after crop, resize and wallpaper overlay.
+        drawCalendarStrip(
+            context,
+            canvas,
+            darkened.width,
+            darkened.height
+        )
+
         return darkened
     }
 
-    // FIXED: block body allows return bitmap inside the when statement.
+    // Minimal transparent 10-day calendar strip.
+    private fun drawCalendarStrip(
+        context: Context,
+        canvas: Canvas,
+        width: Int,
+        height: Int
+    ) {
+        val today = Calendar.getInstance()
+
+        val stripHeight = height * 0.18f
+        val margin = width * 0.035f
+        val gap = width * 0.003f
+
+        // Get Material 3 dynamic tertiary color from app theme.
+        val tertiaryAttr = context.resources.getIdentifier(
+            "colorTertiary",
+            "attr",
+            context.packageName
+        )
+
+        val typedValue = TypedValue()
+
+        val tertiaryColor =
+            if (
+                tertiaryAttr != 0 &&
+                context.theme.resolveAttribute(
+                    tertiaryAttr,
+                    typedValue,
+                    true
+                )
+            ) {
+                typedValue.data
+            } else {
+                Color.rgb(127, 86, 217)
+            }
+
+        // Month and year heading.
+        val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = tertiaryColor
+            textSize = width * 0.030f
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.LEFT
+        }
+
+        val monthText = SimpleDateFormat(
+            "MMMM yyyy",
+            Locale.getDefault()
+        ).format(today.time).uppercase(Locale.getDefault())
+
+        val headerY = height - stripHeight * 0.70f
+
+        canvas.drawText(
+            monthText,
+            margin,
+            headerY,
+            headerPaint
+        )
+
+        // 10 DAYS label.
+        headerPaint.color = Color.WHITE
+        headerPaint.textSize = width * 0.018f
+        headerPaint.textAlign = Paint.Align.RIGHT
+
+        canvas.drawText(
+            "10 DAYS",
+            width - margin,
+            headerY,
+            headerPaint
+        )
+
+        // Date tile dimensions.
+        val tileTop = height - stripHeight * 0.58f
+        val tileBottom = height - stripHeight * 0.04f
+
+        val availableWidth =
+            width - (margin * 2f) - (gap * 9f)
+
+        val tileWidth = availableWidth / 10f
+        val tileHeight = tileBottom - tileTop
+
+        // Weekday label paint.
+        val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textAlign = Paint.Align.CENTER
+            textSize = tileWidth * 0.22f
+            typeface = Typeface.DEFAULT_BOLD
+        }
+
+        // Bold date number paint.
+        val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textAlign = Paint.Align.CENTER
+            textSize = tileWidth * 0.39f
+            typeface = Typeface.DEFAULT_BOLD
+        }
+
+        // Rectangle background paint.
+        val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        // Today outline.
+        val todayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = width * 0.0015f
+        }
+
+        val dayFormat = SimpleDateFormat(
+            "EEE",
+            Locale.getDefault()
+        )
+
+        // Start from today's date.
+        val date = today.clone() as Calendar
+
+        // Draw ten consecutive days.
+        for (index in 0 until 10) {
+
+            val left = margin + index * (tileWidth + gap)
+            val right = left + tileWidth
+
+            val dayOfWeek = date.get(Calendar.DAY_OF_WEEK)
+
+            val isWeekend =
+                dayOfWeek == Calendar.SATURDAY ||
+                dayOfWeek == Calendar.SUNDAY
+
+            val isToday = index == 0
+
+            // Weekends: solid red.
+            // Other dates: transparent black at 20% opacity.
+            backgroundPaint.color = if (isWeekend) {
+                Color.rgb(211, 47, 47)
+            } else {
+                Color.BLACK
+            }
+
+            backgroundPaint.alpha = if (isWeekend) {
+                255
+            } else {
+                51
+            }
+
+            // Sharp rectangular date background.
+            canvas.drawRect(
+                left,
+                tileTop,
+                right,
+                tileBottom,
+                backgroundPaint
+            )
+
+            // Highlight today's date with a white outline.
+            if (isToday) {
+                canvas.drawRect(
+                    left,
+                    tileTop,
+                    right,
+                    tileBottom,
+                    todayPaint
+                )
+            }
+
+            val centerX = (left + right) / 2f
+
+            // White text for all dates, including weekends.
+            dayPaint.color = Color.WHITE
+            datePaint.color = Color.WHITE
+
+            val dayLabel = dayFormat.format(date.time)
+                .uppercase(Locale.getDefault())
+
+            val dayBaseline =
+                tileTop + tileHeight * 0.32f -
+                    (dayPaint.ascent() + dayPaint.descent()) / 2f
+
+            val dateBaseline =
+                tileTop + tileHeight * 0.80f -
+                    (datePaint.ascent() + datePaint.descent()) / 2f
+
+            canvas.drawText(
+                dayLabel,
+                centerX,
+                dayBaseline,
+                dayPaint
+            )
+
+            canvas.drawText(
+                date.get(Calendar.DAY_OF_MONTH).toString(),
+                centerX,
+                dateBaseline,
+                datePaint
+            )
+
+            // Move to next date.
+            date.add(Calendar.DAY_OF_YEAR, 1)
+        }
+    }
+
+    // EXIF orientation correction.
     private fun applyExif(
         context: Context,
         uri: Uri,
