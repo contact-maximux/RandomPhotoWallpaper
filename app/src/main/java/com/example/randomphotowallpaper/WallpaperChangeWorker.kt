@@ -104,7 +104,6 @@ class WallpaperChangeWorker(
                 bitmap.recycle()
             }
 
-            // Record image only after successfully setting wallpaper.
             used.add(chosen.toString())
             writeHistory(context, historyFile, used)
 
@@ -523,7 +522,7 @@ class WallpaperChangeWorker(
             }
         )
 
-        // Draw quote below camera area in upper-right half.
+        // Quote below camera area in upper-right half.
         drawQuoteOverlay(
             context,
             canvas,
@@ -531,7 +530,7 @@ class WallpaperChangeWorker(
             darkened.height
         )
 
-        // Draw calendar at bottom.
+        // Calendar at bottom.
         drawCalendarStrip(
             context,
             canvas,
@@ -550,73 +549,28 @@ class WallpaperChangeWorker(
         height: Int
     ) {
         val quotes = listOf(
-            Pair(
-                "The journey of a thousand miles begins with a single step.",
-                "Lao Tzu"
-            ),
-            Pair(
-                "Believe you can and you're halfway there.",
-                "Theodore Roosevelt"
-            ),
-            Pair(
-                "It always seems impossible until it's done.",
-                "Nelson Mandela"
-            ),
-            Pair(
-                "What you think, you become.",
-                "Buddha"
-            ),
-            Pair(
-                "Simplicity is the ultimate sophistication.",
-                "Leonardo da Vinci"
-            ),
-            Pair(
-                "The secret of getting ahead is getting started.",
-                "Mark Twain"
-            ),
-            Pair(
-                "Great things are done by a series of small things brought together.",
-                "Vincent van Gogh"
-            ),
-            Pair(
-                "Be yourself; everyone else is already taken.",
-                "Oscar Wilde"
-            ),
-            Pair(
-                "Dream big and dare to fail.",
-                "Norman Vaughan"
-            ),
-            Pair(
-                "Do what you can, with what you have, where you are.",
-                "Theodore Roosevelt"
-            ),
-            Pair(
-                "Stay hungry. Stay foolish.",
-                "Steve Jobs"
-            ),
-            Pair(
-                "In the middle of difficulty lies opportunity.",
-                "Albert Einstein"
-            ),
-            Pair(
-                "Every moment is a fresh beginning.",
-                "T. S. Eliot"
-            ),
-            Pair(
-                "Act as if what you do makes a difference. It does.",
-                "William James"
-            )
+            Pair("The journey of a thousand miles begins with a single step.", "Lao Tzu"),
+            Pair("Believe you can and you're halfway there.", "Theodore Roosevelt"),
+            Pair("It always seems impossible until it's done.", "Nelson Mandela"),
+            Pair("What you think, you become.", "Buddha"),
+            Pair("Simplicity is the ultimate sophistication.", "Leonardo da Vinci"),
+            Pair("The secret of getting ahead is getting started.", "Mark Twain"),
+            Pair("Great things are done by a series of small things brought together.", "Vincent van Gogh"),
+            Pair("Be yourself; everyone else is already taken.", "Oscar Wilde"),
+            Pair("Dream big and dare to fail.", "Norman Vaughan"),
+            Pair("Do what you can, with what you have, where you are.", "Theodore Roosevelt"),
+            Pair("Stay hungry. Stay foolish.", "Steve Jobs"),
+            Pair("In the middle of difficulty lies opportunity.", "Albert Einstein"),
+            Pair("Every moment is a fresh beginning.", "T. S. Eliot"),
+            Pair("Act as if what you do makes a difference. It does.", "William James")
         )
 
         val selected = quotes.random()
-
         val density = context.resources.displayMetrics.scaledDensity
 
-        // Font size: maximum 14sp.
         val textSize = 14f * density
         val authorSize = 11f * density
 
-        // Right half of screen, below camera area.
         val left = width * 0.55f
         val maxWidth = width * 0.40f
         val top = height * 0.15f
@@ -624,10 +578,7 @@ class WallpaperChangeWorker(
         val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             this.textSize = textSize
-            typeface = Typeface.create(
-                "sans-serif",
-                Typeface.NORMAL
-            )
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
             textAlign = Paint.Align.LEFT
             setShadowLayer(
                 3f * density,
@@ -640,10 +591,7 @@ class WallpaperChangeWorker(
         val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textSize = authorSize
-            typeface = Typeface.create(
-                "sans-serif-medium",
-                Typeface.NORMAL
-            )
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             textAlign = Paint.Align.LEFT
             setShadowLayer(
                 3f * density,
@@ -653,7 +601,6 @@ class WallpaperChangeWorker(
             )
         }
 
-        // Wrap quote into a maximum of two lines.
         val words = selected.first.split(" ")
         val lines = mutableListOf<String>()
         var currentLine = ""
@@ -682,7 +629,6 @@ class WallpaperChangeWorker(
 
         val visibleLines = lines.take(2).toMutableList()
 
-        // Add ellipsis if the quote needs more than two lines.
         if (lines.size > 2 && visibleLines.isNotEmpty()) {
             var lastLine = visibleLines.last()
 
@@ -707,7 +653,6 @@ class WallpaperChangeWorker(
             )
         }
 
-        // Author below quote.
         canvas.drawText(
             "— ${selected.second}",
             left,
@@ -719,7 +664,7 @@ class WallpaperChangeWorker(
         authorPaint.clearShadowLayer()
     }
 
-    // Minimal transparent 10-day calendar strip.
+    // Updated minimal transparent 10-day calendar strip.
     private fun drawCalendarStrip(
         context: Context,
         canvas: Canvas,
@@ -728,11 +673,11 @@ class WallpaperChangeWorker(
     ) {
         val today = Calendar.getInstance()
 
-        val stripHeight = height * 0.18f
+        // Calendar uses 20% of screen height.
+        val stripHeight = height * 0.20f
         val margin = width * 0.035f
         val gap = width * 0.003f
 
-        // Get Material 3 dynamic tertiary color from app theme.
         val tertiaryAttr = context.resources.getIdentifier(
             "colorTertiary",
             "attr",
@@ -768,7 +713,8 @@ class WallpaperChangeWorker(
             Locale.getDefault()
         ).format(today.time).uppercase(Locale.getDefault())
 
-        val headerY = height - stripHeight * 0.70f
+        // Move header higher.
+        val headerY = height - stripHeight * 0.82f
 
         canvas.drawText(
             monthText,
@@ -777,7 +723,6 @@ class WallpaperChangeWorker(
             headerPaint
         )
 
-        // 10 DAYS label.
         headerPaint.color = Color.WHITE
         headerPaint.textSize = width * 0.018f
         headerPaint.textAlign = Paint.Align.RIGHT
@@ -789,9 +734,9 @@ class WallpaperChangeWorker(
             headerPaint
         )
 
-        // Date tile dimensions.
-        val tileTop = height - stripHeight * 0.58f
-        val tileBottom = height - stripHeight * 0.04f
+        // Tiles moved upward with a larger bottom safe margin.
+        val tileTop = height - stripHeight * 0.70f
+        val tileBottom = height - stripHeight * 0.20f
 
         val availableWidth =
             width - (margin * 2f) - (gap * 9f)
@@ -799,7 +744,6 @@ class WallpaperChangeWorker(
         val tileWidth = availableWidth / 10f
         val tileHeight = tileBottom - tileTop
 
-        // Weekday label paint.
         val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textAlign = Paint.Align.CENTER
@@ -807,7 +751,6 @@ class WallpaperChangeWorker(
             typeface = Typeface.DEFAULT_BOLD
         }
 
-        // Bold date number paint.
         val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textAlign = Paint.Align.CENTER
@@ -815,10 +758,8 @@ class WallpaperChangeWorker(
             typeface = Typeface.DEFAULT_BOLD
         }
 
-        // Rectangle background paint.
         val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-        // Today outline.
         val todayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             style = Paint.Style.STROKE
@@ -830,12 +771,8 @@ class WallpaperChangeWorker(
             Locale.getDefault()
         )
 
-        // Start from today's date.
-        val date = today.clone() as Calendar
-
-        // Draw ten consecutive days.
+val calendarDate: Calendar = today.clone() as Calendar
         for (index in 0 until 10) {
-
             val left = margin + index * (tileWidth + gap)
             val right = left + tileWidth
 
@@ -847,8 +784,6 @@ class WallpaperChangeWorker(
 
             val isToday = index == 0
 
-            // Weekends: solid red.
-            // Other dates: transparent black at 20% opacity.
             backgroundPaint.color = if (isWeekend) {
                 Color.rgb(211, 47, 47)
             } else {
@@ -861,7 +796,6 @@ class WallpaperChangeWorker(
                 51
             }
 
-            // Sharp rectangular date background.
             canvas.drawRect(
                 left,
                 tileTop,
@@ -870,7 +804,6 @@ class WallpaperChangeWorker(
                 backgroundPaint
             )
 
-            // Highlight today's date with a white outline.
             if (isToday) {
                 canvas.drawRect(
                     left,
@@ -883,11 +816,7 @@ class WallpaperChangeWorker(
 
             val centerX = (left + right) / 2f
 
-            // White text for all dates, including weekends.
-            dayPaint.color = Color.WHITE
-            datePaint.color = Color.WHITE
-
-            val dayLabel = dayFormat.format(date.time)
+            val dayLabel = dayFormat.format(calendarDate.time)
                 .uppercase(Locale.getDefault())
 
             val dayBaseline =
@@ -906,14 +835,13 @@ class WallpaperChangeWorker(
             )
 
             canvas.drawText(
-                date.get(Calendar.DAY_OF_MONTH).toString(),
+                calendarDate.get(Calendar.DAY_OF_MONTH).toString(),
                 centerX,
                 dateBaseline,
                 datePaint
             )
 
-            // Move to next date.
-            date.add(Calendar.DAY_OF_YEAR, 1)
+            calendarDate.add(Calendar.DAY_OF_YEAR, 1)
         }
     }
 
