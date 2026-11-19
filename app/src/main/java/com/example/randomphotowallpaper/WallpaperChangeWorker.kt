@@ -653,7 +653,7 @@ val firstTwoLines = lines.take(2)
 
                 listOf(
                     firstTwoLines.first(),
-                    "$shortenedLastLine…"
+                    shortenedLastLine + "…"
                 )
 
             } else {
