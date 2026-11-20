@@ -1,3 +1,4 @@
+
 package com.example.randomphotowallpaper
 
 import android.app.Activity
@@ -8,8 +9,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.InputFilter
 import android.text.InputType
-import android.view.ViewGroup
+import android.text.TextWatcher
+import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
+import android.content.Context
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Toast
@@ -60,7 +65,6 @@ class MainActivity : Activity() {
         }
     }
 
-    // Detect a device reboot using Android's boot counter.
     private fun resetNightModeAfterRestart() {
         try {
             val bootCount = Settings.Global.getInt(
@@ -81,13 +85,11 @@ class MainActivity : Activity() {
                 .apply()
 
         } catch (_: Exception) {
-            // Keep the app usable if the device does not expose boot count.
         }
     }
 
     private fun toggleNightMode() {
         if (prefs.getBoolean(KEY_NIGHT_MODE, false)) {
-            // Day mode never requires a PIN.
             prefs.edit()
                 .putBoolean(KEY_NIGHT_MODE, false)
                 .apply()
@@ -99,7 +101,16 @@ class MainActivity : Activity() {
     }
 
     private fun authenticateForNightMode() {
-        val savedPin = NightPinStore.read(this)
+        val savedPin = try {
+            NightPinStore.read(this)
+        } catch (_: Exception) {
+            Toast.makeText(
+                this,
+                "Could not read saved PIN.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
 
         if (savedPin == null) {
             showCreatePinDialog()
@@ -108,18 +119,41 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun showCreatePinDialog() {
-        val firstPin = EditText(this).apply {
-            hint = "Create 4–8 digit PIN"
+    private fun createPinInput(hintText: String): EditText {
+        return EditText(this).apply {
+            hint = hintText
             inputType = InputType.TYPE_CLASS_NUMBER or
                 InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            filters = arrayOf(InputFilter.LengthFilter(4))
+            isFocusableInTouchMode = true
         }
+    }
 
-        val confirmPin = EditText(this).apply {
-            hint = "Confirm PIN"
-            inputType = InputType.TYPE_CLASS_NUMBER or
-                InputType.TYPE_NUMBER_VARIATION_PASSWORD
+    private fun focusAndShowKeyboard(input: EditText, dialog: AlertDialog) {
+        dialog.window?.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
+        )
+
+        input.requestFocus()
+
+        input.post {
+            input.selectAll()
+
+            val imm = getSystemService(
+                Context.INPUT_METHOD_SERVICE
+            ) as InputMethodManager
+
+            imm.showSoftInput(
+                input,
+                InputMethodManager.SHOW_IMPLICIT
+            )
         }
+    }
+
+    private fun showCreatePinDialog() {
+
+        val firstPin = createPinInput("Create 4-digit PIN")
+        val confirmPin = createPinInput("Confirm 4-digit PIN")
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -130,68 +164,100 @@ class MainActivity : Activity() {
 
         val dialog = AlertDialog.Builder(this)
             .setTitle("Create Night mode PIN")
-            .setMessage("Create a 4–8 digit PIN to protect Night mode.")
+            .setMessage("Create a 4-digit PIN to protect Night mode.")
             .setView(layout)
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Save", null)
             .create()
 
         dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val pin = firstPin.text.toString()
-                val confirmation = confirmPin.text.toString()
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener {
 
-                if (!pin.matches(Regex("\\d{4,8}"))) {
-                    firstPin.error = "Enter 4–8 digits"
-                    return@setOnClickListener
+                    val pin = firstPin.text.toString()
+                    val confirmation = confirmPin.text.toString()
+
+                    if (!pin.matches(Regex("\\d{4}"))) {
+                        firstPin.error = "Enter exactly 4 digits"
+                        return@setOnClickListener
+                    }
+
+                    if (pin != confirmation) {
+                        confirmPin.error = "PINs do not match"
+                        return@setOnClickListener
+                    }
+
+                    try {
+                        NightPinStore.save(this, pin)
+                        dialog.dismiss()
+                        continueEnablingNightMode()
+
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            this,
+                            "Could not save PIN: ${e.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
 
-                if (pin != confirmation) {
-                    confirmPin.error = "PINs do not match"
-                    return@setOnClickListener
-                }
-
-                try {
-                    NightPinStore.save(this, pin)
-                    dialog.dismiss()
-                    continueEnablingNightMode()
-                } catch (e: Exception) {
-                    Toast.makeText(
-                        this,
-                        "Could not save PIN: ${e.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
+            focusAndShowKeyboard(firstPin, dialog)
         }
 
         dialog.show()
     }
 
     private fun showEnterPinDialog(savedPin: String) {
-        val pinInput = EditText(this).apply {
-            hint = "Enter Night mode PIN"
-            inputType = InputType.TYPE_CLASS_NUMBER or
-                InputType.TYPE_NUMBER_VARIATION_PASSWORD
-        }
+
+        val pinInput = createPinInput("Enter 4-digit PIN")
 
         val dialog = AlertDialog.Builder(this)
             .setTitle("Night mode")
             .setMessage("Enter your PIN to enable Night mode.")
             .setView(pinInput)
             .setNegativeButton("Cancel", null)
-            .setPositiveButton("Unlock", null)
             .create()
 
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (pinInput.text.toString() == savedPin) {
-                    dialog.dismiss()
-                    continueEnablingNightMode()
-                } else {
-                    pinInput.error = "Incorrect PIN"
+        var submitted = false
+
+        pinInput.addTextChangedListener(object : TextWatcher {
+
+            override fun beforeTextChanged(
+                s: CharSequence?,
+                start: Int,
+                count: Int,
+                after: Int
+            ) {}
+
+            override fun onTextChanged(
+                s: CharSequence?,
+                start: Int,
+                before: Int,
+                count: Int
+            ) {
+                if (s?.length == 4 && !submitted) {
+                    submitted = true
+
+                    if (s.toString() == savedPin) {
+                        dialog.dismiss()
+                        continueEnablingNightMode()
+                    } else {
+                        dialog.dismiss()
+
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Wrong PIN. Night mode not enabled.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
             }
+
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+
+        dialog.setOnShowListener {
+            focusAndShowKeyboard(pinInput, dialog)
         }
 
         dialog.show()
@@ -400,6 +466,10 @@ private object NightPinStore {
             encoded,
             android.util.Base64.NO_WRAP
         )
+
+        require(combined.size > 12) {
+            "Invalid saved PIN data."
+        }
 
         val iv = combined.copyOfRange(0, 12)
         val encrypted = combined.copyOfRange(12, combined.size)
