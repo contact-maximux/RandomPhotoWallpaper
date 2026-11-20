@@ -13,6 +13,14 @@
             android:targetPackage="notepad.autowall"
             android:targetClass="notepad.autowall.MainActivity" />
 
+        <intent
+    android:action="android.intent.action.VIEW"
+    android:targetPackage="notepad.autowall"
+    android:targetClass="notepad.autowall.MainActivity">
+    <extra
+        android:name="OPEN_NIGHT_MODE"
+        android:value="true" />
+</intent>
     </shortcut>
 
 </shortcuts>
