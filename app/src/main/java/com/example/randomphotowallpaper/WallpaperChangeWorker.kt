@@ -653,7 +653,7 @@ class WallpaperChangeWorker(
             }
         )
 
-        // Draw calendar first at the top.
+        // Calendar occupies the right 55% of the screen.
         drawCalendarStrip(
             context,
             canvas,
@@ -661,7 +661,7 @@ class WallpaperChangeWorker(
             homeBitmap.height
         )
 
-        // Draw quote at the bottom.
+        // Quote is rotated clockwise along the extreme right edge.
         drawQuoteOverlay(
             context,
             canvas,
@@ -672,8 +672,8 @@ class WallpaperChangeWorker(
         return Pair(lockBitmap, homeBitmap)
     }
 
-    // QUOTE: bottom of wallpaper.
-    // Author appears immediately above quote, right-aligned.
+    // QUOTE: rotated 90 degrees clockwise along the right edge.
+    // Author appears before the quote in the vertical reading direction.
     private fun drawQuoteOverlay(
         context: Context,
         canvas: Canvas,
@@ -683,8 +683,8 @@ class WallpaperChangeWorker(
         val selected = QuoteRepository.getRandomQuote(context)
         val density = context.resources.displayMetrics.density
 
-        val margin = width * 0.055f
-        val maxWidth = width - margin * 2f
+        val edgeMargin = width * 0.025f
+        val maxTextLength = height * 0.72f
 
         val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(241, 241, 241)
@@ -702,8 +702,11 @@ class WallpaperChangeWorker(
         val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(241, 241, 241)
             textSize = 12f * density
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            textAlign = Paint.Align.RIGHT
+            typeface = Typeface.create(
+                "sans-serif-medium",
+                Typeface.NORMAL
+            )
+            textAlign = Paint.Align.LEFT
             setShadowLayer(
                 3f * density,
                 1f * density,
@@ -712,6 +715,7 @@ class WallpaperChangeWorker(
             )
         }
 
+        // Wrap quote into a maximum of two vertical columns.
         val words = selected.text.trim().split(Regex("\\s+"))
         val lines = mutableListOf<String>()
         var currentLine = ""
@@ -722,7 +726,7 @@ class WallpaperChangeWorker(
                 else "$currentLine $word"
 
             if (
-                quotePaint.measureText(candidate) <= maxWidth ||
+                quotePaint.measureText(candidate) <= maxTextLength ||
                 currentLine.isEmpty()
             ) {
                 currentLine = candidate
@@ -741,35 +745,46 @@ class WallpaperChangeWorker(
         val visibleLines = lines.take(2)
         val lineHeight = quotePaint.textSize * 1.25f
 
-        val quoteBottom = height * 0.92f
+        // Rotate around the top-right corner.
+        canvas.save()
+        canvas.rotate(
+            90f,
+            width.toFloat(),
+            0f
+        )
 
-        val firstBaseline =
-            quoteBottom - (visibleLines.size - 1) * lineHeight
+        // After rotation, local Y controls distance from the right edge.
+        val textX = height * 0.13f
+        val textY = edgeMargin
 
+        // Author comes first, above the quote.
+        if (selected.author.isNotBlank()) {
+            canvas.drawText(
+                selected.author,
+                height * 0.075f,
+                textY,
+                authorPaint
+            )
+        }
+
+        // Each wrapped line is drawn as a parallel vertical line.
         visibleLines.forEachIndexed { index, line ->
             canvas.drawText(
                 line,
-                margin,
-                firstBaseline + index * lineHeight,
+                textX,
+                textY + index * lineHeight,
                 quotePaint
             )
         }
 
-        if (selected.author.isNotBlank()) {
-            val authorBaseline =
-                firstBaseline - quotePaint.textSize * 0.75f
-
-            canvas.drawText(
-                selected.author,
-                width - margin,
-                authorBaseline,
-                authorPaint
-            )
-        }
+        canvas.restore()
     }
 
-    // CALENDAR: three rows, seven separate rectangular blocks.
-    // Row 1 = weekdays, Row 2 = current week, Row 3 = next week.
+    // CALENDAR:
+    // Three rows and seven rectangular tiles.
+    // Calendar begins at 45% of screen width.
+    // All tiles share the same background.
+    // Saturday and Sunday text is bright red.
     private fun drawCalendarStrip(
         context: Context,
         canvas: Canvas,
@@ -778,12 +793,17 @@ class WallpaperChangeWorker(
     ) {
         val density = context.resources.displayMetrics.density
 
-        val margin = width * 0.035f
-        val gap = width * 0.003f
+        // Leave the left 45% of the wallpaper clear.
+        val startX = width * 0.45f
+        val rightMargin = width * 0.02f
+        val gap = width * 0.002f
 
         val columns = 7
-        val tileWidth =
-            (width - margin * 2f - gap * (columns - 1)) / columns
+
+        val availableWidth =
+            width - startX - rightMargin - gap * (columns - 1)
+
+        val tileWidth = availableWidth / columns
 
         val topMargin = height * 0.035f
         val tileHeight = height * 0.038f
@@ -809,8 +829,14 @@ class WallpaperChangeWorker(
             add(Calendar.DAY_OF_YEAR, -daysFromMonday)
         }
 
-        val weekdays = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(241, 241, 241)
+        // One consistent background for every tile.
+        val tileBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.BLACK
+            alpha = 100
+        }
+
+        val normalText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(245, 245, 245)
             textSize = 12f * density
             typeface = Typeface.create(
                 "sans-serif-medium",
@@ -825,8 +851,8 @@ class WallpaperChangeWorker(
             )
         }
 
-        val dates = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(241, 241, 241)
+        val dateText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(245, 245, 245)
             textSize = 16f * density
             typeface = Typeface.create(
                 "sans-serif",
@@ -841,29 +867,21 @@ class WallpaperChangeWorker(
             )
         }
 
-        val normalBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.BLACK
-            alpha = 85
-        }
-
-        val weekendBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            alpha = 220
-        }
-
+        // Bright red for Saturday and Sunday.
         val weekendText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(25, 25, 25)
+            color = Color.rgb(255, 45, 45)
             textSize = 16f * density
             typeface = Typeface.create(
-                "sans-serif",
+                "sans-serif-medium",
                 Typeface.NORMAL
             )
             textAlign = Paint.Align.CENTER
-        }
-
-        val todayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(0, 190, 220)
-            alpha = 255
+            setShadowLayer(
+                2f * density,
+                1f * density,
+                1f * density,
+                Color.BLACK
+            )
         }
 
         val todayText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -874,24 +892,28 @@ class WallpaperChangeWorker(
                 Typeface.NORMAL
             )
             textAlign = Paint.Align.CENTER
+            setShadowLayer(
+                2f * density,
+                1f * density,
+                1f * density,
+                Color.BLACK
+            )
         }
 
         fun drawBlock(
             column: Int,
             row: Int,
             label: String,
-            background: Paint,
             textPaint: Paint
         ) {
-            val left = margin + column * (tileWidth + gap)
+            val left = startX + column * (tileWidth + gap)
             val right = left + tileWidth
             val top = topMargin + row * (tileHeight + rowGap)
             val bottom = top + tileHeight
 
-            // Square-corner rectangles with minimal gaps.
             canvas.drawRect(
                 RectF(left, top, right, bottom),
-                background
+                tileBackground
             )
 
             val baseline =
@@ -906,14 +928,16 @@ class WallpaperChangeWorker(
             )
         }
 
-        // Row 1: fixed weekday labels, Monday through Sunday.
+        // Row 1: weekday labels.
         for (column in 0 until columns) {
+            val textPaint =
+                if (column >= 5) weekendText else normalText
+
             drawBlock(
                 column = column,
                 row = 0,
                 label = dayLabels[column],
-                background = normalBackground,
-                textPaint = weekdays
+                textPaint = textPaint
             )
         }
 
@@ -932,23 +956,16 @@ class WallpaperChangeWorker(
 
                 val isWeekend = column >= 5
 
-                val background = when {
-                    isToday -> todayBackground
-                    isWeekend -> weekendBackground
-                    else -> normalBackground
-                }
-
                 val textPaint = when {
                     isToday -> todayText
                     isWeekend -> weekendText
-                    else -> dates
+                    else -> dateText
                 }
 
                 drawBlock(
                     column = column,
                     row = row + 1,
                     label = date.get(Calendar.DAY_OF_MONTH).toString(),
-                    background = background,
                     textPaint = textPaint
                 )
             }
