@@ -1,5 +1,7 @@
 package com.example.randomphotowallpaper
-
+import android.content.ContentValues
+import android.os.Environment
+import android.provider.MediaStore
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -90,7 +92,11 @@ class WallpaperChangeWorker(
 
             val chosen = Uri.parse((currentIds - used).random())
             val bitmap = decodeAndCrop(context, chosen)
-
+            // Save exact generated wallpaper for calendar debugging.
+            try {
+                saveDebugWallpaper(context, bitmap)
+            } catch (_: Exception) {
+            }
             try {
                 WallpaperManager.getInstance(context).setBitmap(
                     bitmap,
@@ -398,6 +404,77 @@ class WallpaperChangeWorker(
                 .build()
         )
     }
+    
+private fun saveDebugWallpaper(
+    context: Context,
+    bitmap: Bitmap
+) {
+    val fileName = "wall.jpg"
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val resolver = context.contentResolver
+        val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+        val relativePath =
+            "${Environment.DIRECTORY_PICTURES}/RandomWallpaperDebug/"
+
+        // Replace the previous debug image.
+        resolver.delete(
+            collection,
+            "${MediaStore.Images.Media.DISPLAY_NAME}=? AND " +
+                "${MediaStore.Images.Media.RELATIVE_PATH}=?",
+            arrayOf(fileName, relativePath)
+        )
+
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+
+        val imageUri = resolver.insert(collection, values)
+            ?: error("Could not create debug image")
+
+        try {
+            resolver.openOutputStream(imageUri)?.use { stream ->
+                check(
+                    bitmap.compress(
+                        Bitmap.CompressFormat.JPEG,
+                        95,
+                        stream
+                    )
+                ) {
+                    "Could not compress debug image"
+                }
+            } ?: error("Could not open debug image")
+
+            val completedValues = ContentValues().apply {
+                put(MediaStore.Images.Media.IS_PENDING, 0)
+            }
+
+            resolver.update(imageUri, completedValues, null, null)
+
+        } catch (e: Exception) {
+            resolver.delete(imageUri, null, null)
+            throw e
+        }
+
+    } else {
+        val directory = File(
+            context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
+            "RandomWallpaperDebug"
+        )
+
+        directory.mkdirs()
+
+        val file = File(directory, fileName)
+
+        FileOutputStream(file).use { stream ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
+        }
+    }
+}
+
 
     private fun decodeAndCrop(
         context: Context,
