@@ -1,6 +1,6 @@
 
 package com.example.randomphotowallpaper
-
+import android.provider.Settings
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -31,7 +31,7 @@ import kotlin.random.Random
 object WallpaperEngine {
 
     private const val PREFS = "wallpaper_state"
-
+    private const val KEY_LAST_BOOT_COUNT = "last_seen_boot_count"
     private const val KEY_FOLDERS = "selected_folder_uris"
     private const val KEY_LEGACY_FOLDER = "selected_tree_uri"
     private const val KEY_CURRENT_IMAGE = "current_wallpaper_image_uri"
@@ -63,7 +63,29 @@ object WallpaperEngine {
         val app = context.applicationContext
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-        val nightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
+// Reset Night mode if the phone has restarted.
+try {
+    val bootCount = Settings.Global.getInt(
+        app.contentResolver,
+        Settings.Global.BOOT_COUNT
+    )
+
+    val previousBoot = prefs.getInt(KEY_LAST_BOOT_COUNT, -1)
+
+    if (previousBoot != -1 && previousBoot != bootCount) {
+        prefs.edit()
+            .putBoolean(KEY_NIGHT_MODE, false)
+            .apply()
+    }
+
+    prefs.edit()
+        .putInt(KEY_LAST_BOOT_COUNT, bootCount)
+        .apply()
+
+} catch (_: Exception) {
+}
+
+val nightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
 
         // Select folders according to the active mode.
         val folders = if (nightMode) {
@@ -658,7 +680,7 @@ object WallpaperEngine {
                 )
                 .addAction(
                     android.R.drawable.ic_menu_day,
-                    if (nightMode) "Night mode: ON" else "Night mode: OFF",
+if (nightMode) "Day" else "Night",
                     nightPending
                 )
                 .build()
