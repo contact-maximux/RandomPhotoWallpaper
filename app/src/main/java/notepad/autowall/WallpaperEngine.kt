@@ -1,5 +1,5 @@
 
-package com.example.randomphotowallpaper
+package notepad.autowall
 import android.provider.Settings
 import android.app.Notification
 import android.app.NotificationChannel
@@ -443,43 +443,56 @@ showNotification(
 
         if (oriented !== decoded) decoded.recycle()
 
-        val targetRatio = targetWidth.toFloat() / targetHeight
-        val sourceRatio = oriented.width.toFloat() / oriented.height
+        
+val targetRatio = targetWidth.toFloat() / targetHeight
 
-        val cropW: Int
-        val cropH: Int
+// Calculate the maximum crop area matching screen aspect ratio.
+val baseCropW: Int
+val baseCropH: Int
 
-        if (sourceRatio > targetRatio) {
-            cropH = oriented.height
-            cropW = (oriented.height * targetRatio)
-                .toInt()
-                .coerceIn(1, oriented.width)
-        } else {
-            cropW = oriented.width
-            cropH = (oriented.width / targetRatio)
-                .toInt()
-                .coerceIn(1, oriented.height)
-        }
+if (oriented.width.toFloat() / oriented.height > targetRatio) {
+    baseCropH = oriented.height
+    baseCropW = (oriented.height * targetRatio)
+        .toInt()
+        .coerceIn(1, oriented.width)
+} else {
+    baseCropW = oriented.width
+    baseCropH = (oriented.width / targetRatio)
+        .toInt()
+        .coerceIn(1, oriented.height)
+}
 
-        val left = if (oriented.width > cropW) {
-            Random.nextInt(oriented.width - cropW + 1)
-        } else {
-            0
-        }
+// Apply 30% zoom before choosing a random crop.
+val zoomFactor = 1.30f
 
-        val top = if (oriented.height > cropH) {
-            Random.nextInt(oriented.height - cropH + 1)
-        } else {
-            0
-        }
+val cropW = (baseCropW / zoomFactor)
+    .toInt()
+    .coerceAtLeast(1)
 
-        val cropped = Bitmap.createBitmap(
-            oriented,
-            left,
-            top,
-            cropW,
-            cropH
-        )
+val cropH = (baseCropH / zoomFactor)
+    .toInt()
+    .coerceAtLeast(1)
+
+// Randomly select the crop position.
+val left = if (oriented.width > cropW) {
+    Random.nextInt(oriented.width - cropW + 1)
+} else {
+    0
+}
+
+val top = if (oriented.height > cropH) {
+    Random.nextInt(oriented.height - cropH + 1)
+} else {
+    0
+}
+
+val cropped = Bitmap.createBitmap(
+    oriented,
+    left,
+    top,
+    cropW,
+    cropH
+)
 
         if (cropped !== oriented) oriented.recycle()
 
