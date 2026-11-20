@@ -95,7 +95,19 @@ class WallpaperChangeWorker(
             // Save exact generated wallpaper for calendar debugging.
             try {
                 saveDebugWallpaper(context, bitmap)
-            } catch (_: Exception) {
+            
+                android.util.Log.i(
+                    "WallpaperDebug",
+                    "SUCCESS: Saved Pictures/RandomWallpaperDebug/wall.jpg"
+                )
+            
+            } catch (e: Exception) {
+            
+                android.util.Log.e(
+                    "WallpaperDebug",
+                    "FAILED TO SAVE WALLPAPER",
+                    e
+                )
             }
             try {
                 WallpaperManager.getInstance(context).setBitmap(
@@ -453,7 +465,10 @@ private fun saveDebugWallpaper(
             }
 
             resolver.update(imageUri, completedValues, null, null)
-
+            android.util.Log.i(
+                "WallpaperDebug",
+                "Image saved successfully: $imageUri"
+            )
         } catch (e: Exception) {
             resolver.delete(imageUri, null, null)
             throw e
