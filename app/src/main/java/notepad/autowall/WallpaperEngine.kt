@@ -1,5 +1,6 @@
 
 package notepad.autowall
+
 import android.provider.Settings
 import android.app.Notification
 import android.app.NotificationChannel
@@ -48,40 +49,40 @@ object WallpaperEngine {
     private const val ACTION_DELETE = "notepad.autowall.DELETE_AND_NEXT"
     private const val ACTION_ADD_FOLDER = "notepad.autowall.ADD_FOLDER"
     private const val ACTION_TOGGLE_NIGHT = "notepad.autowall.TOGGLE_NIGHT"
-    private const val OVERLAY_ALPHA = 71 // 20% black
 
-    // Main entry point for manual and scheduled wallpaper changes.
+    private const val OVERLAY_ALPHA = 71
+
     @Synchronized
     fun changeWallpaper(context: Context) {
 
         val app = context.applicationContext
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-// Reset Night mode if the phone has restarted.
-try {
-    val bootCount = Settings.Global.getInt(
-        app.contentResolver,
-        Settings.Global.BOOT_COUNT
-    )
+        // Reset Night mode if the phone has restarted.
+        try {
+            val bootCount = Settings.Global.getInt(
+                app.contentResolver,
+                Settings.Global.BOOT_COUNT
+            )
 
-    val previousBoot = prefs.getInt(KEY_LAST_BOOT_COUNT, -1)
+            val previousBoot = prefs.getInt(KEY_LAST_BOOT_COUNT, -1)
 
-    if (previousBoot != -1 && previousBoot != bootCount) {
-        prefs.edit()
-            .putBoolean(KEY_NIGHT_MODE, false)
-            .apply()
-    }
+            if (previousBoot != -1 && previousBoot != bootCount) {
+                prefs.edit()
+                    .putBoolean(KEY_NIGHT_MODE, false)
+                    .apply()
+            }
 
-    prefs.edit()
-        .putInt(KEY_LAST_BOOT_COUNT, bootCount)
-        .apply()
+            prefs.edit()
+                .putInt(KEY_LAST_BOOT_COUNT, bootCount)
+                .apply()
 
-} catch (_: Exception) {
-}
+        } catch (_: Exception) {
+        }
 
-val nightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
+        val nightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
 
-        // Select folders according to the active mode.
+        // Select folders according to active mode.
         val folders = if (nightMode) {
             listOfNotNull(
                 prefs.getString(KEY_NIGHT_FOLDER, null)
@@ -113,7 +114,7 @@ val nightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
             "No supported photos found in the active folder."
         }
 
-        // Each mode has its own independent image history.
+        // Separate history for Night and Day.
         val historyName = if (nightMode) {
             NIGHT_HISTORY_FILE
         } else {
@@ -127,7 +128,6 @@ val nightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
             .intersect(currentIds)
             .toMutableSet()
 
-        // Start a new cycle when every available image has been used.
         if ((currentIds - used).isEmpty()) {
             used.clear()
         }
@@ -155,28 +155,27 @@ val nightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
             bitmap.recycle()
         }
 
-        // Save history only after wallpaper was successfully changed.
+        // Save history after successful wallpaper change.
         used.add(chosen.toString())
         writeHistory(app, historyFile, used)
 
         prefs.edit()
-    .putString(KEY_CURRENT_IMAGE, chosen.toString())
-    .apply()
+            .putString(KEY_CURRENT_IMAGE, chosen.toString())
+            .apply()
 
-// Night mode is a one-time wallpaper change.
-if (nightMode) {
-    prefs.edit()
-        .putBoolean(KEY_NIGHT_MODE, false)
-        .apply()
-}
+        // Night mode is a one-time wallpaper change.
+        if (nightMode) {
+            prefs.edit()
+                .putBoolean(KEY_NIGHT_MODE, false)
+                .apply()
+        }
 
-showNotification(
-    app,
-    displayName(app, chosen) ?: "Photo"
-)
+        showNotification(
+            app,
+            displayName(app, chosen) ?: "Photo"
+        )
     }
 
-    // Delete the currently displayed original photo and change wallpaper.
     @Synchronized
     fun deleteCurrentAndChange(context: Context): String {
 
@@ -197,9 +196,7 @@ showNotification(
                 )
 
                 if (deleted) {
-                    // Remove it from both histories.
                     removeFromHistory(app, current)
-
                     message = "Previous photo deleted."
 
                     prefs.edit()
@@ -250,7 +247,7 @@ showNotification(
         }
     }
 
-    // Only direct children are scanned. No subdirectories.
+    // Scan direct children only.
     private fun collectDirectImages(
         context: Context,
         tree: Uri,
@@ -297,7 +294,6 @@ showNotification(
                 val name = cursor.getString(nameCol) ?: ""
 
                 if (!name.startsWith(".") && mime.startsWith("image/")) {
-
                     output.add(
                         DocumentsContract.buildDocumentUriUsingTree(
                             tree,
@@ -437,41 +433,40 @@ showNotification(
 
         if (oriented !== decoded) decoded.recycle()
 
-        
-val targetRatio = targetWidth.toFloat() / targetHeight
+        // Original crop logic: no additional zoom.
+        val targetRatio = targetWidth.toFloat() / targetHeight
 
-val targetRatio = targetWidth.toFloat() / targetHeight
+        val cropW: Int
+        val cropH: Int
 
-val cropW: Int
-val cropH: Int
+        if (oriented.width.toFloat() / oriented.height > targetRatio) {
+            cropH = oriented.height
+            cropW = (oriented.height * targetRatio).toInt()
+        } else {
+            cropW = oriented.width
+            cropH = (oriented.width / targetRatio).toInt()
+        }
 
-if (oriented.width.toFloat() / oriented.height > targetRatio) {
-    cropH = oriented.height
-    cropW = (oriented.height * targetRatio).toInt()
-} else {
-    cropW = oriented.width
-    cropH = (oriented.width / targetRatio).toInt()
-}
+        val left = if (oriented.width > cropW) {
+            Random.nextInt(oriented.width - cropW + 1)
+        } else {
+            0
+        }
 
-val left = if (oriented.width > cropW) {
-    Random.nextInt(oriented.width - cropW + 1)
-} else {
-    0
-}
+        val top = if (oriented.height > cropH) {
+            Random.nextInt(oriented.height - cropH + 1)
+        } else {
+            0
+        }
 
-val top = if (oriented.height > cropH) {
-    Random.nextInt(oriented.height - cropH + 1)
-} else {
-    0
-}
+        val cropped = Bitmap.createBitmap(
+            oriented,
+            left,
+            top,
+            cropW,
+            cropH
+        )
 
-val cropped = Bitmap.createBitmap(
-    oriented,
-    left,
-    top,
-    cropW,
-    cropH
-)
         if (cropped !== oriented) oriented.recycle()
 
         val scaled = Bitmap.createScaledBitmap(
@@ -490,7 +485,7 @@ val cropped = Bitmap.createBitmap(
 
         scaled.recycle()
 
-        // 20% black overlay.
+        // Midnight-blue overlay.
         Canvas(darkened).drawRect(
             0f,
             0f,
@@ -678,7 +673,7 @@ val cropped = Bitmap.createBitmap(
                 )
                 .addAction(
                     android.R.drawable.ic_menu_day,
-if (nightMode) "Day" else "Night",
+                    if (nightMode) "Day" else "Night",
                     nightPending
                 )
                 .build()
