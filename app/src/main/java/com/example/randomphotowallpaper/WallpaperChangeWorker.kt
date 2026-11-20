@@ -1,29 +1,25 @@
 
 package com.example.randomphotowallpaper
 
-import android.content.ContentValues
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.WallpaperManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.RectF
-import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.os.PowerManager
 import android.provider.DocumentsContract
-import android.provider.MediaStore
 import androidx.exifinterface.media.ExifInterface
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -90,50 +86,21 @@ class WallpaperChangeWorker(
             }
 
             val chosen = Uri.parse((currentIds - used).random())
-
-            val (lockBitmap, homeBitmap) = decodeAndCrop(
-                context,
-                chosen
-            )
+            val bitmap = decodeAndCrop(context, chosen)
 
             try {
-                try {
-                    saveDebugWallpaper(context, homeBitmap)
-
-                    android.util.Log.i(
-                        "WallpaperDebug",
-                        "SUCCESS: Saved Pictures/RandomWallpaperDebug/wall.jpg"
-                    )
-                } catch (e: Exception) {
-                    android.util.Log.e(
-                        "WallpaperDebug",
-                        "FAILED TO SAVE WALLPAPER",
-                        e
-                    )
-                }
-
-                val wallpaperManager =
-                    WallpaperManager.getInstance(context)
-
-                wallpaperManager.setBitmap(
-                    lockBitmap,
+                WallpaperManager.getInstance(context).setBitmap(
+                    bitmap,
                     null,
                     true,
-                    WallpaperManager.FLAG_LOCK
+                    WallpaperManager.FLAG_SYSTEM or
+                        WallpaperManager.FLAG_LOCK
                 )
-
-                wallpaperManager.setBitmap(
-                    homeBitmap,
-                    null,
-                    true,
-                    WallpaperManager.FLAG_SYSTEM
-                )
-
             } finally {
-                lockBitmap.recycle()
-                homeBitmap.recycle()
+                bitmap.recycle()
             }
 
+            // Record the image only after successfully setting wallpaper.
             used.add(chosen.toString())
             writeHistory(context, historyFile, used)
 
@@ -148,12 +115,7 @@ class WallpaperChangeWorker(
 
             Result.success()
 
-        } catch (e: Exception) {
-            android.util.Log.e(
-                "WallpaperWorker",
-                "Wallpaper update failed",
-                e
-            )
+        } catch (_: Exception) {
             Result.retry()
         }
     }
@@ -167,7 +129,7 @@ class WallpaperChangeWorker(
 
     private fun isLandscape(context: Context): Boolean {
         return context.resources.configuration.orientation ==
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            Configuration.ORIENTATION_LANDSCAPE
     }
 
     private fun isPowerSaveMode(context: Context): Boolean {
@@ -423,108 +385,22 @@ class WallpaperChangeWorker(
                 .setAutoCancel(true)
                 .addAction(
                     android.R.drawable.ic_menu_delete,
-                    "Delete Wallpaper",
+                    "Delete & change next",
                     deletePending
                 )
                 .addAction(
                     android.R.drawable.ic_menu_add,
-                    "Add Folder",
+                    "Add more folder",
                     addPending
                 )
                 .build()
         )
     }
 
-    private fun saveDebugWallpaper(
-        context: Context,
-        bitmap: Bitmap
-    ) {
-        val fileName = "wall.jpg"
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val resolver = context.contentResolver
-            val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-
-            val relativePath =
-                "${Environment.DIRECTORY_PICTURES}/RandomWallpaperDebug/"
-
-            resolver.delete(
-                collection,
-                "${MediaStore.Images.Media.DISPLAY_NAME}=? AND " +
-                    "${MediaStore.Images.Media.RELATIVE_PATH}=?",
-                arrayOf(fileName, relativePath)
-            )
-
-            val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
-                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-
-            val imageUri = resolver.insert(collection, values)
-                ?: error("Could not create debug image")
-
-            try {
-                resolver.openOutputStream(imageUri)?.use { stream ->
-                    check(
-                        bitmap.compress(
-                            Bitmap.CompressFormat.JPEG,
-                            95,
-                            stream
-                        )
-                    ) {
-                        "Could not compress debug image"
-                    }
-                } ?: error("Could not open debug image")
-
-                val completedValues = ContentValues().apply {
-                    put(MediaStore.Images.Media.IS_PENDING, 0)
-                }
-
-                resolver.update(imageUri, completedValues, null, null)
-
-                android.util.Log.i(
-                    "WallpaperDebug",
-                    "Image saved successfully: $imageUri"
-                )
-            } catch (e: Exception) {
-                resolver.delete(imageUri, null, null)
-                throw e
-            }
-
-        } else {
-            val directory = File(
-                context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
-                "RandomWallpaperDebug"
-            )
-
-            if (!directory.exists()) {
-                check(directory.mkdirs()) {
-                    "Could not create debug directory"
-                }
-            }
-
-            val file = File(directory, fileName)
-
-            FileOutputStream(file).use { stream ->
-                check(
-                    bitmap.compress(
-                        Bitmap.CompressFormat.JPEG,
-                        95,
-                        stream
-                    )
-                ) {
-                    "Could not write debug image"
-                }
-            }
-        }
-    }
-
     private fun decodeAndCrop(
         context: Context,
         uri: Uri
-    ): Pair<Bitmap, Bitmap> {
+    ): Bitmap {
         val metrics = context.resources.displayMetrics
 
         val targetWidth = metrics.widthPixels.coerceAtLeast(1)
@@ -622,352 +498,28 @@ class WallpaperChangeWorker(
             cropped.recycle()
         }
 
-        val lockBitmap = scaled.copy(
+        val darkened = scaled.copy(
             Bitmap.Config.ARGB_8888,
             true
-        ) ?: error("Could not prepare lock-screen image")
-
-        val homeBitmap = try {
-            scaled.copy(
-                Bitmap.Config.ARGB_8888,
-                true
-            ) ?: error("Could not prepare home-screen image")
-        } catch (e: Exception) {
-            lockBitmap.recycle()
-            scaled.recycle()
-            throw e
-        }
+        ) ?: error("Overlay failed")
 
         scaled.recycle()
 
-        val canvas = Canvas(homeBitmap)
-
-        // No black overlay. Wallpaper background is assumed to be black.
-        drawCalendarStrip(
-            context,
-            canvas,
-            homeBitmap.width,
-            homeBitmap.height
-        )
-
-        drawQuoteOverlay(
-            context,
-            canvas,
-            homeBitmap.width,
-            homeBitmap.height
-        )
-
-        return Pair(lockBitmap, homeBitmap)
-    }
-
-    // Quote is rotated 90 degrees clockwise along the extreme right edge.
-    // Author appears before the quote in the vertical reading direction.
-    private fun drawQuoteOverlay(
-        context: Context,
-        canvas: Canvas,
-        width: Int,
-        height: Int
-    ) {
-        val selected = QuoteRepository.getRandomQuote(context)
-        val density = context.resources.displayMetrics.density
-
-        val edgeMargin = width * 0.022f
-        val topMargin = height * 0.07f
-        val bottomMargin = height * 0.07f
-
-        val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 12f * density
-            typeface = Typeface.create(
-                "sans-serif-medium",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.LEFT
-            setShadowLayer(
-                2.5f * density,
-                0f,
-                0f,
-                Color.BLACK
-            )
-        }
-
-        val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 17f * density
-            typeface = Typeface.create(
-                "sans-serif",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.LEFT
-            setShadowLayer(
-                2.5f * density,
-                0f,
-                0f,
-                Color.BLACK
-            )
-        }
-
-        val author = selected.author.trim()
-        val quote = selected.text.trim()
-
-        val authorLength = if (author.isNotBlank()) {
-            authorPaint.measureText(author)
-        } else {
-            0f
-        }
-
-        val authorGap = if (author.isNotBlank()) {
-            authorPaint.textSize * 2f
-        } else {
-            0f
-        }
-
-        val quoteStart = topMargin + authorLength + authorGap
-
-        val quoteAvailable =
-            (height - bottomMargin - quoteStart).coerceAtLeast(1f)
-
-        // Reduce font size until the quote fits on one vertical line.
-        while (
-            quotePaint.measureText(quote) > quoteAvailable &&
-            quotePaint.textSize > 10f * density
-        ) {
-            quotePaint.textSize -= density
-        }
-
-        var visibleQuote = quote
-
-        // Truncate only if it still does not fit.
-        if (quotePaint.measureText(visibleQuote) > quoteAvailable) {
-            val ellipsis = "…"
-            var end = visibleQuote.length
-
-            while (
-                end > 0 &&
-                quotePaint.measureText(
-                    visibleQuote.substring(0, end) + ellipsis
-                ) > quoteAvailable
-            ) {
-                end--
+        Canvas(darkened).drawRect(
+            0f,
+            0f,
+            darkened.width.toFloat(),
+            darkened.height.toFloat(),
+            Paint().apply {
+                color = Color.BLACK
+                alpha = 51
             }
-
-            visibleQuote =
-                if (end > 0) {
-                    visibleQuote.substring(0, end).trimEnd() + ellipsis
-                } else {
-                    ellipsis
-                }
-        }
-
-        canvas.save()
-
-        // Local x maps to screen vertical position.
-        // Local y controls distance from the right edge.
-        canvas.rotate(
-            90f,
-            width.toFloat(),
-            0f
         )
 
-        if (author.isNotBlank()) {
-            canvas.drawText(
-                author,
-                topMargin,
-                edgeMargin,
-                authorPaint
-            )
-        }
-
-        canvas.drawText(
-            visibleQuote,
-            quoteStart,
-            edgeMargin,
-            quotePaint
-        )
-
-        canvas.restore()
+        return darkened
     }
 
-    // Same compact outlined calendar design as MainActivity.
-    private fun drawCalendarStrip(
-        context: Context,
-        canvas: Canvas,
-        width: Int,
-        height: Int
-    ) {
-        val density = context.resources.displayMetrics.density
-
-        val startX = width * 0.45f
-
-        // Reserve the extreme right strip for the vertical quote.
-        val rightMargin = width * 0.065f
-
-        val gap = 1.5f * density
-        val columns = 7
-
-        val availableWidth =
-            width - startX - rightMargin - gap * (columns - 1)
-
-        val tileWidth = availableWidth / columns
-
-        // Compact calendar height.
-        val topMargin = height * 0.035f
-        val tileHeight = height * 0.029f
-        val rowGap = height * 0.003f
-
-        val dayLabels = listOf(
-            "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
-        )
-
-        val today = Calendar.getInstance()
-
-        val currentMonday = (today.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-
-            val day = get(Calendar.DAY_OF_WEEK)
-            val daysFromMonday =
-                (day - Calendar.MONDAY + 7) % 7
-
-            add(Calendar.DAY_OF_YEAR, -daysFromMonday)
-        }
-
-        // Transparent rectangle: outline only, no black fill.
-        val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = 1.2f * density
-            color = Color.rgb(205, 205, 205)
-            setShadowLayer(
-                2f * density,
-                0f,
-                0f,
-                Color.BLACK
-            )
-        }
-
-        val normalDayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 13f * density
-            typeface = Typeface.create(
-                "sans-serif-bold",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.CENTER
-            setShadowLayer(
-                2.5f * density,
-                0f,
-                0f,
-                Color.BLACK
-            )
-        }
-
-        val weekendDayPaint = Paint(normalDayPaint).apply {
-            color = Color.rgb(255, 40, 40)
-        }
-
-        val normalDatePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 20f * density
-            typeface = Typeface.create(
-                "sans-serif-medium",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.CENTER
-            setShadowLayer(
-                2.5f * density,
-                0f,
-                0f,
-                Color.BLACK
-            )
-        }
-
-        val weekendDatePaint = Paint(normalDatePaint).apply {
-            color = Color.rgb(255, 40, 40)
-        }
-
-        val todayPaint = Paint(normalDatePaint).apply {
-            typeface = Typeface.create(
-                "sans-serif-black",
-                Typeface.NORMAL
-            )
-            color = Color.WHITE
-        }
-
-        fun drawTile(
-            column: Int,
-            row: Int,
-            label: String,
-            textPaint: Paint
-        ) {
-            val left = startX + column * (tileWidth + gap)
-            val right = left + tileWidth
-            val top = topMargin + row * (tileHeight + rowGap)
-            val bottom = top + tileHeight
-
-            canvas.drawRect(
-                RectF(left, top, right, bottom),
-                outlinePaint
-            )
-
-            val baseline =
-                top + (tileHeight - textPaint.textSize) / 2f -
-                    (textPaint.ascent() + textPaint.descent()) / 2f
-
-            canvas.drawText(
-                label,
-                (left + right) / 2f,
-                baseline,
-                textPaint
-            )
-        }
-
-        // Row 1: weekday labels.
-        for (column in 0 until columns) {
-            drawTile(
-                column = column,
-                row = 0,
-                label = dayLabels[column],
-                textPaint = if (column >= 5) {
-                    weekendDayPaint
-                } else {
-                    normalDayPaint
-                }
-            )
-        }
-
-        // Row 2: current week.
-        // Row 3: following week.
-        for (row in 0..1) {
-            for (column in 0 until columns) {
-                val date = (currentMonday.clone() as Calendar).apply {
-                    add(Calendar.DAY_OF_YEAR, row * 7 + column)
-                }
-
-                val isToday =
-                    date.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
-                    date.get(Calendar.DAY_OF_YEAR) ==
-                        today.get(Calendar.DAY_OF_YEAR)
-
-                val isWeekend = column >= 5
-
-                val textPaint = when {
-                    isToday -> todayPaint
-                    isWeekend -> weekendDatePaint
-                    else -> normalDatePaint
-                }
-
-                drawTile(
-                    column = column,
-                    row = row + 1,
-                    label = date.get(Calendar.DAY_OF_MONTH).toString(),
-                    textPaint = textPaint
-                )
-            }
-        }
-    }
-
+    // FIXED: block body allows return bitmap inside the when statement.
     private fun applyExif(
         context: Context,
         uri: Uri,
