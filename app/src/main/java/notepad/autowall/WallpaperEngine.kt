@@ -440,6 +440,8 @@ showNotification(
         
 val targetRatio = targetWidth.toFloat() / targetHeight
 
+val targetRatio = targetWidth.toFloat() / targetHeight
+
 val cropW: Int
 val cropH: Int
 
