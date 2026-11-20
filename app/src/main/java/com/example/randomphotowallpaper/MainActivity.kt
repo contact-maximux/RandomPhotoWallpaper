@@ -655,308 +655,339 @@ class MainActivity : Activity() {
         return finalBitmap
     }
 
-    private fun drawQuoteOverlay(
-        context: android.content.Context,
-        canvas: Canvas,
-        width: Int,
-        height: Int
-    ) {
-        val quotes = listOf(
-            "The journey of a thousand miles begins with one step." to "Lao Tzu",
-            "Believe you can and you're halfway there." to "Theodore Roosevelt",
-            "It always seems impossible until it's done." to "Nelson Mandela",
-            "What we think, we become." to "Buddha",
-            "Learning never exhausts the mind." to "Leonardo da Vinci",
-            "The secret of getting ahead is getting started." to "Mark Twain",
-            "Great things are done by a series of small things brought together." to "Vincent van Gogh",
-            "Be yourself; everyone else is already taken." to "Oscar Wilde",
-            "Dream big and dare to fail." to "Norman Vaughan",
-            "The only way to do great work is to love what you do." to "Steve Jobs",
-            "Life is like riding a bicycle. To keep your balance, you must keep moving." to "Albert Einstein",
-            "Only those who will risk going too far can possibly find out how far one can go." to "T. S. Eliot",
-            "Act as if what you do makes a difference. It does." to "William James"
-        )
+    
+private fun drawQuoteOverlay(
+    context: android.content.Context,
+    canvas: Canvas,
+    width: Int,
+    height: Int
+) {
+    val quotes = listOf(
+        "The journey of a thousand miles begins with one step." to "Lao Tzu",
+        "Believe you can and you're halfway there." to "Theodore Roosevelt",
+        "It always seems impossible until it's done." to "Nelson Mandela",
+        "What we think, we become." to "Buddha",
+        "Learning never exhausts the mind." to "Leonardo da Vinci",
+        "The secret of getting ahead is getting started." to "Mark Twain",
+        "Great things are done by a series of small things brought together." to "Vincent van Gogh",
+        "Be yourself; everyone else is already taken." to "Oscar Wilde",
+        "Dream big and dare to fail." to "Norman Vaughan",
+        "The only way to do great work is to love what you do." to "Steve Jobs",
+        "Life is like riding a bicycle. To keep your balance, you must keep moving." to "Albert Einstein",
+        "Only those who will risk going too far can possibly find out how far one can go." to "T. S. Eliot",
+        "Act as if what you do makes a difference. It does." to "William James"
+    )
 
-        val selected = quotes.random()
-        val density = context.resources.displayMetrics.density
+    val selected = quotes.random()
+    val density = context.resources.displayMetrics.density
 
-        val left = width * 0.55f
-        val top = height * 0.13f
-        val maxWidth = width * 0.40f
+    val left = width * 0.55f
+    val top = height * 0.15f
+    val maxWidth = width * 0.40f
 
-        val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 14f * density
-            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
-            textAlign = Paint.Align.LEFT
-            setShadowLayer(
-                3f * density,
-                1f * density,
-                1f * density,
-                Color.BLACK
-            )
-        }
-
-        val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 11f * density
-            typeface = Typeface.create(
-                "sans-serif-medium",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.LEFT
-            setShadowLayer(
-                3f * density,
-                1f * density,
-                1f * density,
-                Color.BLACK
-            )
-        }
-
-        val words = selected.first.split(" ")
-        val lines = mutableListOf<String>()
-        var currentLine = ""
-
-        for (word in words) {
-            val candidate =
-                if (currentLine.isEmpty()) word
-                else "$currentLine $word"
-
-            if (
-                quotePaint.measureText(candidate) <= maxWidth ||
-                currentLine.isEmpty()
-            ) {
-                currentLine = candidate
-            } else {
-                lines.add(currentLine)
-                currentLine = word
-            }
-
-            if (lines.size == 2) break
-        }
-
-        if (lines.size < 2 && currentLine.isNotEmpty()) {
-            lines.add(currentLine)
-        }
-
-        val lineHeight = quotePaint.textSize * 1.25f
-        var y = top + quotePaint.textSize
-
-        lines.take(2).forEach { line ->
-            canvas.drawText(line, left, y, quotePaint)
-            y += lineHeight
-        }
-
-        y += 5f * density
-
-        canvas.drawText(
-            selected.second,
-            left,
-            y,
-            authorPaint
+    val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 28f * density
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        textAlign = Paint.Align.LEFT
+        setShadowLayer(
+            3f * density,
+            1f * density,
+            1f * density,
+            Color.BLACK
         )
     }
 
-    private fun drawCalendarStrip(
-        context: android.content.Context,
-        canvas: Canvas,
-        width: Int,
-        height: Int
-    ) {
-        val density = context.resources.displayMetrics.density
-        val today = Calendar.getInstance()
+    val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 22f * density
+        typeface = Typeface.create(
+            "sans-serif-medium",
+            Typeface.NORMAL
+        )
+        textAlign = Paint.Align.LEFT
+        setShadowLayer(
+            3f * density,
+            1f * density,
+            1f * density,
+            Color.BLACK
+        )
+    }
 
-        val stripHeight = height * 0.20f
+    val words = selected.first.split(" ")
+    val lines = mutableListOf<String>()
+    var currentLine = ""
 
-        val headerY =
-            height - stripHeight * 0.82f - height * 0.08f
+    for (word in words) {
+        val candidate =
+            if (currentLine.isEmpty()) word
+            else "$currentLine $word"
 
-        val tileTop =
-            height - stripHeight * 0.70f - height * 0.08f
+        if (
+            quotePaint.measureText(candidate) <= maxWidth ||
+            currentLine.isEmpty()
+        ) {
+            currentLine = candidate
+        } else {
+            lines.add(currentLine)
+            currentLine = word
+        }
+    }
 
-        val tileBottom =
-            height - stripHeight * 0.20f - height * 0.08f
+    if (currentLine.isNotEmpty()) {
+        lines.add(currentLine)
+    }
 
-        val margin = width * 0.035f
-        val gap = width * 0.003f
+    val visibleLines = lines.take(2).toMutableList()
 
-        val tileWidth =
-            (width - margin * 2f - gap * 9f) / 10f
+    if (lines.size > 2 && visibleLines.isNotEmpty()) {
+        val lastLine = visibleLines.last()
 
-        val purple = try {
-            val typedValue = TypedValue()
+        val shortened = generateSequence(lastLine) { line ->
+            if (line.isEmpty()) null else line.dropLast(1).trimEnd()
+        }.firstOrNull {
+            quotePaint.measureText("$it…") <= maxWidth
+        } ?: ""
 
-            context.theme.resolveAttribute(
-                android.R.attr.colorAccent,
-                typedValue,
-                true
-            )
+        visibleLines[visibleLines.lastIndex] = "$shortened…"
+    }
 
-            typedValue.data
-        } catch (_: Exception) {
-            Color.rgb(127, 86, 217)
+    val lineHeight = quotePaint.textSize * 1.25f
+    var y = top + quotePaint.textSize
+
+    visibleLines.forEach { line ->
+        canvas.drawText(line, left, y, quotePaint)
+        y += lineHeight
+    }
+
+    y += 5f * density
+
+    canvas.drawText(
+        selected.second,
+        left,
+        y,
+        authorPaint
+    )
+}
+
+
+private fun drawCalendarStrip(
+    context: android.content.Context,
+    canvas: Canvas,
+    width: Int,
+    height: Int
+) {
+    val density = context.resources.displayMetrics.density
+    val today = Calendar.getInstance()
+
+    val stripHeight = height * 0.20f
+
+    // Original calendar position restored.
+    val headerY = height - stripHeight * 0.82f
+    val tileTop = height - stripHeight * 0.70f
+    val tileBottom = height - stripHeight * 0.20f
+
+    val margin = width * 0.035f
+    val gap = width * 0.003f
+
+    val tileWidth =
+        (width - margin * 2f - gap * 9f) / 10f
+
+    val monthText = SimpleDateFormat(
+        "MMMM yyyy",
+        Locale.getDefault()
+    ).format(today.time).uppercase(Locale.getDefault())
+
+    // Month heading text.
+    val monthPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 13f * density
+        typeface = Typeface.create(
+            "sans-serif-medium",
+            Typeface.BOLD
+        )
+        textAlign = Paint.Align.LEFT
+    }
+
+    // Minimal white outlined rectangle around month.
+    val monthPaddingH = 10f * density
+    val monthPaddingV = 5f * density
+
+    val monthTextWidth = monthPaint.measureText(monthText)
+    val monthTextHeight =
+        monthPaint.descent() - monthPaint.ascent()
+
+    val monthRect = android.graphics.RectF(
+        margin,
+        headerY + monthPaint.ascent() - monthPaddingV,
+        margin + monthTextWidth + monthPaddingH * 2f,
+        headerY + monthPaint.descent() + monthPaddingV
+    )
+
+    val monthBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = 1f * density
+    }
+
+    canvas.drawRect(monthRect, monthBorderPaint)
+
+    canvas.drawText(
+        monthText,
+        margin + monthPaddingH,
+        headerY,
+        monthPaint
+    )
+
+    // 10 DAYS label.
+    val smallLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 8f * density
+        typeface = Typeface.create(
+            "sans-serif",
+            Typeface.NORMAL
+        )
+        textAlign = Paint.Align.RIGHT
+        setShadowLayer(
+            2f * density,
+            1f * density,
+            1f * density,
+            Color.BLACK
+        )
+    }
+
+    canvas.drawText(
+        "10 DAYS",
+        width - margin,
+        headerY,
+        smallLabelPaint
+    )
+
+    // Day and date text: doubled sizes.
+    val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 18f * density
+        typeface = Typeface.create(
+            "sans-serif-medium",
+            Typeface.NORMAL
+        )
+        textAlign = Paint.Align.CENTER
+    }
+
+    val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 26f * density
+        typeface = Typeface.create(
+            "sans-serif",
+            Typeface.BOLD
+        )
+        textAlign = Paint.Align.CENTER
+    }
+
+    val weekdayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.BLACK
+        alpha = 51
+    }
+
+    val weekendBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(243, 57, 57) // #F33939
+        alpha = 255
+    }
+
+    val weekdayTextPaint = Paint(dayPaint)
+    val weekdayDatePaint = Paint(datePaint)
+
+    val weekendTextPaint = Paint(dayPaint).apply {
+        color = Color.BLACK
+    }
+
+    val weekendDatePaint = Paint(datePaint).apply {
+        color = Color.BLACK
+    }
+
+    val todayOutline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f * density
+    }
+
+    val tileHeight = tileBottom - tileTop
+
+    for (index in 0 until 10) {
+        val date = (today.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, index)
         }
 
-        val headingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = purple
-            textSize = 13f * density
-            typeface = Typeface.create(
-                "sans-serif-medium",
-                Typeface.BOLD
-            )
-            textAlign = Paint.Align.LEFT
-            setShadowLayer(
-                2f * density,
-                1f,
-                1f,
-                Color.BLACK
-            )
-        }
+        val left = margin + index * (tileWidth + gap)
+        val right = left + tileWidth
 
-        val monthText = SimpleDateFormat(
-            "MMMM yyyy",
-            Locale.getDefault()
-        ).format(today.time)
+        val dayOfWeek = date.get(Calendar.DAY_OF_WEEK)
 
-        canvas.drawText(
-            monthText,
-            margin,
-            headerY,
-            headingPaint
+        val isWeekend =
+            dayOfWeek == Calendar.SATURDAY ||
+                dayOfWeek == Calendar.SUNDAY
+
+        val isToday = index == 0
+
+        // Square calendar tiles.
+        canvas.drawRect(
+            left,
+            tileTop,
+            right,
+            tileBottom,
+            if (isWeekend) weekendBackground else weekdayBackground
         )
 
-        val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 9f * density
-            typeface = Typeface.create(
-                "sans-serif-medium",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.CENTER
-            setShadowLayer(
-                2f * density,
-                1f,
-                1f,
-                Color.BLACK
-            )
-        }
-
-        val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 13f * density
-            typeface = Typeface.create(
-                "sans-serif",
-                Typeface.BOLD
-            )
-            textAlign = Paint.Align.CENTER
-            setShadowLayer(
-                2f * density,
-                1f,
-                1f,
-                Color.BLACK
-            )
-        }
-
-        val weekdayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.BLACK
-            alpha = 51
-        }
-
-        val weekendBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(211, 47, 47)
-            alpha = 255
-        }
-
-        val todayOutline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            style = Paint.Style.STROKE
-            strokeWidth = 1.5f * density
-        }
-
-        val smallLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            textSize = 8f * density
-            typeface = Typeface.create(
-                "sans-serif",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.LEFT
-        }
-
-        canvas.drawText(
-            "10 DAYS",
-            width - margin - 45f * density,
-            headerY,
-            smallLabelPaint
-        )
-
-        for (index in 0 until 10) {
-            val date = (today.clone() as Calendar).apply {
-                add(Calendar.DAY_OF_YEAR, index)
-            }
-
-            val left = margin + index * (tileWidth + gap)
-            val right = left + tileWidth
-
-            val dayOfWeek = date.get(Calendar.DAY_OF_WEEK)
-
-            val isWeekend =
-                dayOfWeek == Calendar.SATURDAY ||
-                    dayOfWeek == Calendar.SUNDAY
-
-            val isToday = index == 0
-
-            val rect = android.graphics.RectF(
+        if (isToday) {
+            canvas.drawRect(
                 left,
                 tileTop,
                 right,
-                tileBottom
+                tileBottom,
+                todayOutline
             )
-
-            canvas.drawRoundRect(
-                rect,
-                5f * density,
-                5f * density,
-                if (isWeekend) {
-                    weekendBackground
-                } else {
-                    weekdayBackground
-                }
-            )
-
-            val dayName = SimpleDateFormat(
-                "EEE",
-                Locale.getDefault()
-            ).format(date.time)
-
-            val dayNumber = date.get(
-                Calendar.DAY_OF_MONTH
-            ).toString()
-
-            canvas.drawText(
-                dayName,
-                (left + right) / 2f,
-                tileTop + 13f * density,
-                dayPaint
-            )
-
-            canvas.drawText(
-                dayNumber,
-                (left + right) / 2f,
-                tileTop + 31f * density,
-                datePaint
-            )
-
-            if (isToday) {
-                canvas.drawRoundRect(
-                    rect,
-                    5f * density,
-                    5f * density,
-                    todayOutline
-                )
-            }
         }
+
+        val dayName = SimpleDateFormat(
+            "EEE",
+            Locale.getDefault()
+        ).format(date.time).uppercase(Locale.getDefault())
+
+        val dayNumber = date.get(
+            Calendar.DAY_OF_MONTH
+        ).toString()
+
+        val centerX = (left + right) / 2f
+
+        val selectedDayPaint =
+            if (isWeekend) weekendTextPaint else weekdayTextPaint
+
+        val selectedDatePaint =
+            if (isWeekend) weekendDatePaint else weekdayDatePaint
+
+        val dayBaseline =
+            tileTop + tileHeight * 0.32f -
+                (selectedDayPaint.ascent() + selectedDayPaint.descent()) / 2f
+
+        val dateBaseline =
+            tileTop + tileHeight * 0.80f -
+                (selectedDatePaint.ascent() + selectedDatePaint.descent()) / 2f
+
+        canvas.drawText(
+            dayName,
+            centerX,
+            dayBaseline,
+            selectedDayPaint
+        )
+
+        canvas.drawText(
+            dayNumber,
+            centerX,
+            dateBaseline,
+            selectedDatePaint
+        )
     }
+}
 
     private fun saveDebugWallpaper(bitmap: Bitmap) {
         val fileName = "wall.jpg"
