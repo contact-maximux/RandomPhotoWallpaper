@@ -432,13 +432,13 @@ class MainActivity : Activity() {
         private const val KEY_LAST_BOOT_COUNT = "last_seen_boot_count"
 
         private const val ACTION_DELETE_AND_NEXT =
-            "com.example.randomphotowallpaper.DELETE_AND_NEXT"
+            "notepad.autowall.DELETE_AND_NEXT"
 
         private const val ACTION_ADD_FOLDER =
-            "com.example.randomphotowallpaper.ADD_FOLDER"
+            "notepad.autowall.ADD_FOLDER"
 
         private const val ACTION_TOGGLE_NIGHT =
-            "com.example.randomphotowallpaper.TOGGLE_NIGHT"
+            "notepad.autowall.TOGGLE_NIGHT"
     }
 }
 
