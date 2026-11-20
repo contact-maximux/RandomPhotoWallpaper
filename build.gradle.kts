@@ -1,7 +1,4 @@
-android {
-    namespace = "notepad.autowall"
-
-    defaultConfig {
-        applicationId = "notepad.autowall"
-    }
+plugins {
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.android) apply false
 }
