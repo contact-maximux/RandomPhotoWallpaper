@@ -33,6 +33,10 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.getBooleanExtra("OPEN_NIGHT_MODE", false) == true) {
+            toggleNightMode()
+            intent.removeExtra("OPEN_NIGHT_MODE")
+        }
 
         resetNightModeAfterRestart()
         WallpaperScheduler.schedule(this)
