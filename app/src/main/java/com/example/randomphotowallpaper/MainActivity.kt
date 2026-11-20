@@ -723,10 +723,9 @@ class MainActivity : Activity() {
         val selected = quotes.random()
         val density = context.resources.displayMetrics.density
 
-        val left = width / 3f + 5f
-        val top = height * 0.052f
-        val maxWidth = width - left - (width * 0.08f)
-
+        val left = width * 0.65f
+        val maxWidth = width * 0.30f
+        val top = height * 0.15f
         val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(241, 241, 241) // #F1F1F1
             textSize = 14f * density
