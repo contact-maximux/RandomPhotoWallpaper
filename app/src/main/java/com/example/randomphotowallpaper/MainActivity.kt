@@ -682,11 +682,8 @@ private fun drawQuoteOverlay(
     val selected = quotes.random()
     val density = context.resources.displayMetrics.density
 
-    // Start at one-third of screen width.
-    val left = width / 3f
-
-    // Previous top position divided by 2.5.
-    val top = height * 0.052f
+   val left = width / 3f - 5f
+val top = height * 0.052f
 
     val maxWidth = width * 0.40f
 
@@ -750,10 +747,10 @@ private fun drawQuoteOverlay(
         y += lineHeight
     }
 
-    y += 5f * density
-
+y += 1f * density
     canvas.drawText(selected.second, left, y, authorPaint)
 }
+
 
 
 private fun drawCalendarStrip(
@@ -765,92 +762,45 @@ private fun drawCalendarStrip(
     val density = context.resources.displayMetrics.density
     val today = Calendar.getInstance()
 
-    val stripHeight = height * 0.20f
-
-    val headerY =
-        height - stripHeight * 0.82f - height * 0.08f
-
-    val originalTileTop =
-        height - stripHeight * 0.70f - height * 0.08f
-
-    val originalTileBottom =
-        height - stripHeight * 0.20f - height * 0.08f
-
-    // Reduce rectangle height to half and keep it vertically centered.
-    val originalTileHeight = originalTileBottom - originalTileTop
-    val newTileHeight = originalTileHeight * 0.5f
-
-    val tileTop =
-        originalTileTop + (originalTileHeight - newTileHeight) / 2f
-
-    val tileBottom = tileTop + newTileHeight
-
     val margin = width * 0.035f
     val gap = width * 0.003f
-    val tileWidth =
-        (width - margin * 2f - gap * 9f) / 10f
+    val tileWidth = (width - margin * 2f - gap * 9f) / 10f
 
-    // Month heading: white, double font size, centered.
+    // Calendar at the extreme bottom.
+    val tileBottom = height.toFloat()
+    val tileHeight = height * 0.05f
+    val tileTop = tileBottom - tileHeight
+
+    // All calendar text is white.
     val headingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 26f * density
-        typeface = Typeface.create(
-            "sans-serif-medium",
-            Typeface.BOLD
-        )
+        textSize = 52f * density
+        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
         textAlign = Paint.Align.CENTER
-        setShadowLayer(
-            2f * density,
-            1f,
-            1f,
-            Color.BLACK
-        )
+        setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
     }
 
-    val monthText = SimpleDateFormat(
-        "MMMM yyyy",
-        Locale.getDefault()
-    ).format(today.time)
-
-    canvas.drawText(
-        monthText,
-        width / 2f,
-        headerY,
-        headingPaint
-    )
-
-    // Day names: white and bold.
     val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 9f * density
-        typeface = Typeface.create(
-            "sans-serif",
-            Typeface.BOLD
-        )
+        textSize = 18f * density
+        typeface = Typeface.create("sans-serif", Typeface.BOLD)
         textAlign = Paint.Align.CENTER
-        setShadowLayer(
-            2f * density,
-            1f,
-            1f,
-            Color.BLACK
-        )
+        setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
     }
 
-    // Dates: white and bold.
     val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 13f * density
-        typeface = Typeface.create(
-            "sans-serif",
-            Typeface.BOLD
-        )
+        textSize = 26f * density
+        typeface = Typeface.create("sans-serif", Typeface.BOLD)
         textAlign = Paint.Align.CENTER
-        setShadowLayer(
-            2f * density,
-            1f,
-            1f,
-            Color.BLACK
-        )
+        setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
+    }
+
+    val smallLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 16f * density
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        textAlign = Paint.Align.LEFT
     }
 
     val weekdayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -858,31 +808,38 @@ private fun drawCalendarStrip(
         alpha = 51
     }
 
+    // Almost-black weekend background.
     val weekendBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(211, 47, 47)
+        color = Color.rgb(21, 21, 21)
         alpha = 255
     }
 
-    // Today's background: cyan.
+    // Today's background: cyan, without a border.
     val todayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.rgb(0, 255, 255)
         alpha = 255
     }
 
-    val smallLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = 8f * density
-        typeface = Typeface.create(
-            "sans-serif",
-            Typeface.NORMAL
-        )
-        textAlign = Paint.Align.LEFT
-    }
+    // Month heading bottom sits 2 px above the calendar strip.
+    val monthText = SimpleDateFormat(
+        "MMMM yyyy",
+        Locale.getDefault()
+    ).format(today.time)
+
+    val headingBaseline =
+        tileTop - 2f - headingPaint.fontMetrics.descent
+
+    canvas.drawText(
+        monthText,
+        width / 2f,
+        headingBaseline,
+        headingPaint
+    )
 
     canvas.drawText(
         "10 DAYS",
-        width - margin - 45f * density,
-        headerY,
+        width - margin - 70f * density,
+        headingBaseline,
         smallLabelPaint
     )
 
@@ -909,7 +866,6 @@ private fun drawCalendarStrip(
             tileBottom
         )
 
-        // Today gets cyan; other weekends stay red.
         val backgroundPaint = when {
             isToday -> todayBackground
             isWeekend -> weekendBackground
@@ -933,20 +889,19 @@ private fun drawCalendarStrip(
         ).toString()
 
         val centerX = (left + right) / 2f
-        val tileHeight = tileBottom - tileTop
 
-        // Position both labels inside the shorter rectangle.
+        // Text centered inside the bottom-aligned rectangle.
         canvas.drawText(
             dayName,
             centerX,
-            tileTop + tileHeight * 0.38f + dayPaint.textSize / 2f,
+            tileTop + tileHeight * 0.36f,
             dayPaint
         )
 
         canvas.drawText(
             dayNumber,
             centerX,
-            tileTop + tileHeight * 0.82f,
+            tileTop + tileHeight * 0.90f,
             datePaint
         )
     }
