@@ -656,6 +656,7 @@ class MainActivity : Activity() {
     }
 
     
+
 private fun drawQuoteOverlay(
     context: android.content.Context,
     canvas: Canvas,
@@ -681,13 +682,17 @@ private fun drawQuoteOverlay(
     val selected = quotes.random()
     val density = context.resources.displayMetrics.density
 
-    val left = width * 0.55f
-    val top = height * 0.15f
+    // Start at one-third of screen width.
+    val left = width / 3f
+
+    // Previous top position divided by 2.5.
+    val top = height * 0.052f
+
     val maxWidth = width * 0.40f
 
     val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 28f * density
+        textSize = 14f * density
         typeface = Typeface.create("sans-serif", Typeface.NORMAL)
         textAlign = Paint.Align.LEFT
         setShadowLayer(
@@ -700,11 +705,8 @@ private fun drawQuoteOverlay(
 
     val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 22f * density
-        typeface = Typeface.create(
-            "sans-serif-medium",
-            Typeface.NORMAL
-        )
+        textSize = 11f * density
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         textAlign = Paint.Align.LEFT
         setShadowLayer(
             3f * density,
@@ -732,42 +734,25 @@ private fun drawQuoteOverlay(
             lines.add(currentLine)
             currentLine = word
         }
+
+        if (lines.size == 2) break
     }
 
-    if (currentLine.isNotEmpty()) {
+    if (lines.size < 2 && currentLine.isNotEmpty()) {
         lines.add(currentLine)
-    }
-
-    val visibleLines = lines.take(2).toMutableList()
-
-    if (lines.size > 2 && visibleLines.isNotEmpty()) {
-        val lastLine = visibleLines.last()
-
-        val shortened = generateSequence(lastLine) { line ->
-            if (line.isEmpty()) null else line.dropLast(1).trimEnd()
-        }.firstOrNull {
-            quotePaint.measureText("$it…") <= maxWidth
-        } ?: ""
-
-        visibleLines[visibleLines.lastIndex] = "$shortened…"
     }
 
     val lineHeight = quotePaint.textSize * 1.25f
     var y = top + quotePaint.textSize
 
-    visibleLines.forEach { line ->
+    lines.take(2).forEach { line ->
         canvas.drawText(line, left, y, quotePaint)
         y += lineHeight
     }
 
     y += 5f * density
 
-    canvas.drawText(
-        selected.second,
-        left,
-        y,
-        authorPaint
-    )
+    canvas.drawText(selected.second, left, y, authorPaint)
 }
 
 
@@ -782,106 +767,90 @@ private fun drawCalendarStrip(
 
     val stripHeight = height * 0.20f
 
-    // Original calendar position restored.
-    val headerY = height - stripHeight * 0.82f
-    val tileTop = height - stripHeight * 0.70f
-    val tileBottom = height - stripHeight * 0.20f
+    val headerY =
+        height - stripHeight * 0.82f - height * 0.08f
+
+    val originalTileTop =
+        height - stripHeight * 0.70f - height * 0.08f
+
+    val originalTileBottom =
+        height - stripHeight * 0.20f - height * 0.08f
+
+    // Reduce rectangle height to half and keep it vertically centered.
+    val originalTileHeight = originalTileBottom - originalTileTop
+    val newTileHeight = originalTileHeight * 0.5f
+
+    val tileTop =
+        originalTileTop + (originalTileHeight - newTileHeight) / 2f
+
+    val tileBottom = tileTop + newTileHeight
 
     val margin = width * 0.035f
     val gap = width * 0.003f
-
     val tileWidth =
         (width - margin * 2f - gap * 9f) / 10f
 
-    val monthText = SimpleDateFormat(
-        "MMMM yyyy",
-        Locale.getDefault()
-    ).format(today.time).uppercase(Locale.getDefault())
-
-    // Month heading text.
-    val monthPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    // Month heading: white, double font size, centered.
+    val headingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 13f * density
+        textSize = 26f * density
         typeface = Typeface.create(
             "sans-serif-medium",
             Typeface.BOLD
         )
-        textAlign = Paint.Align.LEFT
-    }
-
-    // Minimal white outlined rectangle around month.
-    val monthPaddingH = 10f * density
-    val monthPaddingV = 5f * density
-
-    val monthTextWidth = monthPaint.measureText(monthText)
-    val monthTextHeight =
-        monthPaint.descent() - monthPaint.ascent()
-
-    val monthRect = android.graphics.RectF(
-        margin,
-        headerY + monthPaint.ascent() - monthPaddingV,
-        margin + monthTextWidth + monthPaddingH * 2f,
-        headerY + monthPaint.descent() + monthPaddingV
-    )
-
-    val monthBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        style = Paint.Style.STROKE
-        strokeWidth = 1f * density
-    }
-
-    canvas.drawRect(monthRect, monthBorderPaint)
-
-    canvas.drawText(
-        monthText,
-        margin + monthPaddingH,
-        headerY,
-        monthPaint
-    )
-
-    // 10 DAYS label.
-    val smallLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = 8f * density
-        typeface = Typeface.create(
-            "sans-serif",
-            Typeface.NORMAL
-        )
-        textAlign = Paint.Align.RIGHT
+        textAlign = Paint.Align.CENTER
         setShadowLayer(
             2f * density,
-            1f * density,
-            1f * density,
+            1f,
+            1f,
             Color.BLACK
         )
     }
 
+    val monthText = SimpleDateFormat(
+        "MMMM yyyy",
+        Locale.getDefault()
+    ).format(today.time)
+
     canvas.drawText(
-        "10 DAYS",
-        width - margin,
+        monthText,
+        width / 2f,
         headerY,
-        smallLabelPaint
+        headingPaint
     )
 
-    // Day and date text: doubled sizes.
+    // Day names: white and bold.
     val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        textSize = 18f * density
-        typeface = Typeface.create(
-            "sans-serif-medium",
-            Typeface.NORMAL
-        )
-        textAlign = Paint.Align.CENTER
-    }
-
-    val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = 26f * density
+        textSize = 9f * density
         typeface = Typeface.create(
             "sans-serif",
             Typeface.BOLD
         )
         textAlign = Paint.Align.CENTER
+        setShadowLayer(
+            2f * density,
+            1f,
+            1f,
+            Color.BLACK
+        )
+    }
+
+    // Dates: white and bold.
+    val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 13f * density
+        typeface = Typeface.create(
+            "sans-serif",
+            Typeface.BOLD
+        )
+        textAlign = Paint.Align.CENTER
+        setShadowLayer(
+            2f * density,
+            1f,
+            1f,
+            Color.BLACK
+        )
     }
 
     val weekdayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -890,28 +859,32 @@ private fun drawCalendarStrip(
     }
 
     val weekendBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(243, 57, 57) // #F33939
+        color = Color.rgb(211, 47, 47)
         alpha = 255
     }
 
-    val weekdayTextPaint = Paint(dayPaint)
-    val weekdayDatePaint = Paint(datePaint)
-
-    val weekendTextPaint = Paint(dayPaint).apply {
-        color = Color.BLACK
+    // Today's background: cyan.
+    val todayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(0, 255, 255)
+        alpha = 255
     }
 
-    val weekendDatePaint = Paint(datePaint).apply {
-        color = Color.BLACK
-    }
-
-    val todayOutline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    val smallLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
-        style = Paint.Style.STROKE
-        strokeWidth = 1.5f * density
+        textSize = 8f * density
+        typeface = Typeface.create(
+            "sans-serif",
+            Typeface.NORMAL
+        )
+        textAlign = Paint.Align.LEFT
     }
 
-    val tileHeight = tileBottom - tileTop
+    canvas.drawText(
+        "10 DAYS",
+        width - margin - 45f * density,
+        headerY,
+        smallLabelPaint
+    )
 
     for (index in 0 until 10) {
         val date = (today.clone() as Calendar).apply {
@@ -925,69 +898,60 @@ private fun drawCalendarStrip(
 
         val isWeekend =
             dayOfWeek == Calendar.SATURDAY ||
-                dayOfWeek == Calendar.SUNDAY
+            dayOfWeek == Calendar.SUNDAY
 
         val isToday = index == 0
 
-        // Square calendar tiles.
-        canvas.drawRect(
+        val rect = android.graphics.RectF(
             left,
             tileTop,
             right,
-            tileBottom,
-            if (isWeekend) weekendBackground else weekdayBackground
+            tileBottom
         )
 
-        if (isToday) {
-            canvas.drawRect(
-                left,
-                tileTop,
-                right,
-                tileBottom,
-                todayOutline
-            )
+        // Today gets cyan; other weekends stay red.
+        val backgroundPaint = when {
+            isToday -> todayBackground
+            isWeekend -> weekendBackground
+            else -> weekdayBackground
         }
+
+        canvas.drawRoundRect(
+            rect,
+            5f * density,
+            5f * density,
+            backgroundPaint
+        )
 
         val dayName = SimpleDateFormat(
             "EEE",
             Locale.getDefault()
-        ).format(date.time).uppercase(Locale.getDefault())
+        ).format(date.time)
 
         val dayNumber = date.get(
             Calendar.DAY_OF_MONTH
         ).toString()
 
         val centerX = (left + right) / 2f
+        val tileHeight = tileBottom - tileTop
 
-        val selectedDayPaint =
-            if (isWeekend) weekendTextPaint else weekdayTextPaint
-
-        val selectedDatePaint =
-            if (isWeekend) weekendDatePaint else weekdayDatePaint
-
-        val dayBaseline =
-            tileTop + tileHeight * 0.32f -
-                (selectedDayPaint.ascent() + selectedDayPaint.descent()) / 2f
-
-        val dateBaseline =
-            tileTop + tileHeight * 0.80f -
-                (selectedDatePaint.ascent() + selectedDatePaint.descent()) / 2f
-
+        // Position both labels inside the shorter rectangle.
         canvas.drawText(
             dayName,
             centerX,
-            dayBaseline,
-            selectedDayPaint
+            tileTop + tileHeight * 0.38f + dayPaint.textSize / 2f,
+            dayPaint
         )
 
         canvas.drawText(
             dayNumber,
             centerX,
-            dateBaseline,
-            selectedDatePaint
+            tileTop + tileHeight * 0.82f,
+            datePaint
         )
     }
 }
+
 
     private fun saveDebugWallpaper(bitmap: Bitmap) {
         val fileName = "wall.jpg"
