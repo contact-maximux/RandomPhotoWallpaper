@@ -4,14 +4,18 @@
     <shortcut
         android:shortcutId="night_mode"
         android:enabled="true"
-        android:icon="@drawable/ic_launcher_foreground"
-        android:shortcutShortLabel="Night"
-        android:shortcutLongLabel="Enable Night Wallpaper">
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_night_short"
+        android:shortcutLongLabel="@string/shortcut_night_long">
 
         <intent
-            android:action="android.intent.action.MAIN"
+            android:action="android.intent.action.VIEW"
             android:targetPackage="notepad.autowall"
-            android:targetClass="notepad.autowall.MainActivity" />
+            android:targetClass="notepad.autowall.MainActivity">
+            <extra
+                android:name="OPEN_NIGHT_MODE"
+                android:value="true" />
+        </intent>
 
     </shortcut>
 
