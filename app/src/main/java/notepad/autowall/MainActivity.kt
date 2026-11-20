@@ -431,14 +431,9 @@ class MainActivity : Activity() {
         private const val KEY_NIGHT_MODE = "night_mode_enabled"
         private const val KEY_LAST_BOOT_COUNT = "last_seen_boot_count"
 
-        private const val ACTION_DELETE_AND_NEXT =
-            "notepad.autowall.DELETE_AND_NEXT"
-
-        private const val ACTION_ADD_FOLDER =
-            "notepad.autowall.ADD_FOLDER"
-
-        private const val ACTION_TOGGLE_NIGHT =
-            "notepad.autowall.TOGGLE_NIGHT"
+        const val ACTION_DELETE_AND_NEXT = "notepad.autowall.DELETE_AND_NEXT"
+        const val ACTION_ADD_FOLDER = "notepad.autowall.ADD_FOLDER"
+        const val ACTION_TOGGLE_NIGHT = "notepad.autowall.TOGGLE_NIGHT"
     }
 }
 
