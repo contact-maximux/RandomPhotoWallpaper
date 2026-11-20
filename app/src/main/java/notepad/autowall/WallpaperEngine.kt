@@ -446,34 +446,17 @@ showNotification(
         
 val targetRatio = targetWidth.toFloat() / targetHeight
 
-// Calculate the maximum crop area matching screen aspect ratio.
-val baseCropW: Int
-val baseCropH: Int
+val cropW: Int
+val cropH: Int
 
 if (oriented.width.toFloat() / oriented.height > targetRatio) {
-    baseCropH = oriented.height
-    baseCropW = (oriented.height * targetRatio)
-        .toInt()
-        .coerceIn(1, oriented.width)
+    cropH = oriented.height
+    cropW = (oriented.height * targetRatio).toInt()
 } else {
-    baseCropW = oriented.width
-    baseCropH = (oriented.width / targetRatio)
-        .toInt()
-        .coerceIn(1, oriented.height)
+    cropW = oriented.width
+    cropH = (oriented.width / targetRatio).toInt()
 }
 
-// Apply 30% zoom before choosing a random crop.
-val zoomFactor = 1.30f
-
-val cropW = (baseCropW / zoomFactor)
-    .toInt()
-    .coerceAtLeast(1)
-
-val cropH = (baseCropH / zoomFactor)
-    .toInt()
-    .coerceAtLeast(1)
-
-// Randomly select the crop position.
 val left = if (oriented.width > cropW) {
     Random.nextInt(oriented.width - cropW + 1)
 } else {
@@ -493,7 +476,6 @@ val cropped = Bitmap.createBitmap(
     cropW,
     cropH
 )
-
         if (cropped !== oriented) oriented.recycle()
 
         val scaled = Bitmap.createScaledBitmap(
