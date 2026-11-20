@@ -1,2 +1,9 @@
-<string name="shortcut_night_short">Night</string>
-<string name="shortcut_night_long">Enable Night Wallpaper</string>
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Night Mode Wallpaper</string>
+
+    <string name="shortcut_night_short">Night</string>
+    <string name="shortcut_night_long">Enable Night Wallpaper</string>
+
+</resources>
