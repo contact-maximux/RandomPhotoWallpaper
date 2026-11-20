@@ -1,4 +1,3 @@
-
 package com.example.randomphotowallpaper
 
 import android.content.ContentValues
@@ -23,7 +22,6 @@ import android.os.Environment
 import android.os.PowerManager
 import android.provider.DocumentsContract
 import android.provider.MediaStore
-import android.util.TypedValue
 import androidx.exifinterface.media.ExifInterface
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -93,14 +91,12 @@ class WallpaperChangeWorker(
 
             val chosen = Uri.parse((currentIds - used).random())
 
-            // Create clean lock-screen and decorated home-screen images.
             val (lockBitmap, homeBitmap) = decodeAndCrop(
                 context,
                 chosen
             )
 
             try {
-                // Save the decorated home-screen image for debugging.
                 try {
                     saveDebugWallpaper(context, homeBitmap)
 
@@ -119,7 +115,6 @@ class WallpaperChangeWorker(
                 val wallpaperManager =
                     WallpaperManager.getInstance(context)
 
-                // FIRST: Clean photo only on the lock screen.
                 wallpaperManager.setBitmap(
                     lockBitmap,
                     null,
@@ -127,7 +122,6 @@ class WallpaperChangeWorker(
                     WallpaperManager.FLAG_LOCK
                 )
 
-                // SECOND: Same photo with quote and calendar on home screen.
                 wallpaperManager.setBitmap(
                     homeBitmap,
                     null,
@@ -429,12 +423,12 @@ class WallpaperChangeWorker(
                 .setAutoCancel(true)
                 .addAction(
                     android.R.drawable.ic_menu_delete,
-                    "Delete & change next",
+                    "Delete Wallpaper",
                     deletePending
                 )
                 .addAction(
                     android.R.drawable.ic_menu_add,
-                    "Add more folder",
+                    "Add Folder",
                     addPending
                 )
                 .build()
@@ -628,7 +622,6 @@ class WallpaperChangeWorker(
             cropped.recycle()
         }
 
-        // Create two identical copies before adding any overlays.
         val lockBitmap = scaled.copy(
             Bitmap.Config.ARGB_8888,
             true
@@ -647,10 +640,8 @@ class WallpaperChangeWorker(
 
         scaled.recycle()
 
-        // Draw all overlays on the home-screen copy only.
         val canvas = Canvas(homeBitmap)
 
-        // Existing 20% black overlay.
         canvas.drawRect(
             0f,
             0f,
@@ -679,38 +670,22 @@ class WallpaperChangeWorker(
         return Pair(lockBitmap, homeBitmap)
     }
 
-    // Quote overlay matching MainActivity.
     private fun drawQuoteOverlay(
         context: Context,
         canvas: Canvas,
         width: Int,
         height: Int
     ) {
-        val quotes = listOf(
-            "The journey of a thousand miles begins with one step." to "Lao Tzu",
-            "Believe you can and you're halfway there." to "Theodore Roosevelt",
-            "It always seems impossible until it's done." to "Nelson Mandela",
-            "What we think, we become." to "Buddha",
-            "Learning never exhausts the mind." to "Leonardo da Vinci",
-            "The secret of getting ahead is getting started." to "Mark Twain",
-            "Great things are done by a series of small things brought together." to "Vincent van Gogh",
-            "Be yourself; everyone else is already taken." to "Oscar Wilde",
-            "Dream big and dare to fail." to "Norman Vaughan",
-            "The only way to do great work is to love what you do." to "Steve Jobs",
-            "Life is like riding a bicycle. To keep your balance, you must keep moving." to "Albert Einstein",
-            "Only those who will risk going too far can possibly find out how far one can go." to "T. S. Eliot",
-            "Act as if what you do makes a difference. It does." to "William James"
-        )
-
-        val selected = quotes.random()
+        val selected = QuoteRepository.getRandomQuote(context)
         val density = context.resources.displayMetrics.density
 
-        val left = width / 3f + 5f
-        val top = height * 0.052f
-        val maxWidth = width - left - (width * 0.08f)
+        // Match MainActivity quote placement.
+        val left = width * 0.65f
+        val top = height * 0.15f
+        val maxWidth = width * 0.30f
 
         val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(241, 241, 241) // #F1F1F1
+            color = Color.rgb(241, 241, 241)
             textSize = 14f * density
             typeface = Typeface.create("sans-serif", Typeface.NORMAL)
             textAlign = Paint.Align.LEFT
@@ -723,7 +698,7 @@ class WallpaperChangeWorker(
         }
 
         val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(241, 241, 241) // #F1F1F1
+            color = Color.rgb(241, 241, 241)
             textSize = 11f * density
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             textAlign = Paint.Align.LEFT
@@ -735,7 +710,7 @@ class WallpaperChangeWorker(
             )
         }
 
-        val words = selected.first.split(" ")
+        val words = selected.text.trim().split(Regex("\\s+"))
         val lines = mutableListOf<String>()
         var currentLine = ""
 
@@ -744,13 +719,12 @@ class WallpaperChangeWorker(
                 if (currentLine.isEmpty()) word
                 else "$currentLine $word"
 
-            if (
-                quotePaint.measureText(candidate) <= maxWidth ||
-                currentLine.isEmpty()
-            ) {
+            if (quotePaint.measureText(candidate) <= maxWidth) {
                 currentLine = candidate
             } else {
-                lines.add(currentLine)
+                if (currentLine.isNotEmpty()) {
+                    lines.add(currentLine)
+                }
                 currentLine = word
             }
 
@@ -769,11 +743,12 @@ class WallpaperChangeWorker(
             y += lineHeight
         }
 
-        y += 1f * density
-        canvas.drawText(selected.second, left, y, authorPaint)
+        if (selected.author.isNotBlank()) {
+            y += 1f * density
+            canvas.drawText(selected.author, left, y, authorPaint)
+        }
     }
 
-    // Calendar strip matching MainActivity.
     private fun drawCalendarStrip(
         context: Context,
         canvas: Canvas,
@@ -787,39 +762,10 @@ class WallpaperChangeWorker(
         val gap = width * 0.003f
         val tileWidth = (width - margin * 2f - gap * 9f) / 10f
 
-        // Calendar at the extreme bottom.
         val tileBottom = height.toFloat()
         val tileHeight = height * 0.05f
         val tileTop = tileBottom - tileHeight
 
-        // Month heading - disabled for now.
-        // Uncomment this block whenever you want the month name back.
-        /*
-        val headingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(241, 241, 241)
-            textSize = 52f * density
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            textAlign = Paint.Align.CENTER
-            setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
-        }
-
-        val monthText = SimpleDateFormat(
-            "MMMM yyyy",
-            Locale.getDefault()
-        ).format(today.time)
-
-        val headingBaseline =
-            tileTop - 2f - headingPaint.fontMetrics.descent
-
-        canvas.drawText(
-            monthText,
-            width / 2f,
-            headingBaseline,
-            headingPaint
-        )
-        */
-
-        // Day names: #F1F1F1, normal weight.
         val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(241, 241, 241)
             textSize = 18f * density
@@ -828,7 +774,6 @@ class WallpaperChangeWorker(
             setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
         }
 
-        // Dates: #F1F1F1, normal weight.
         val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(241, 241, 241)
             textSize = 26f * density
@@ -842,7 +787,6 @@ class WallpaperChangeWorker(
             alpha = 51
         }
 
-        // Weekends: white rectangle with dark text.
         val weekendBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             alpha = 255
@@ -862,7 +806,6 @@ class WallpaperChangeWorker(
             textAlign = Paint.Align.CENTER
         }
 
-        // Today: cyan background, no border.
         val todayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(0, 255, 255)
             alpha = 255
@@ -937,7 +880,6 @@ class WallpaperChangeWorker(
         }
     }
 
-    // EXIF orientation correction.
     private fun applyExif(
         context: Context,
         uri: Uri,
