@@ -54,7 +54,7 @@ object WallpaperEngine {
     private const val ACTION_TOGGLE_NIGHT =
         "com.example.randomphotowallpaper.TOGGLE_NIGHT"
 
-    private const val OVERLAY_ALPHA = 51 // 20% black
+    private const val OVERLAY_ALPHA = 71 // 20% black
 
     // Main entry point for manual and scheduled wallpaper changes.
     @Synchronized
@@ -506,7 +506,7 @@ showNotification(
             darkened.width.toFloat(),
             darkened.height.toFloat(),
             Paint().apply {
-                color = Color.BLACK
+                color = Color.rgb(8, 11, 20)
                 alpha = OVERLAY_ALPHA
             }
         )
