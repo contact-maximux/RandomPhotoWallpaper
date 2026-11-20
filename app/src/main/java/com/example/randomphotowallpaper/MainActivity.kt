@@ -660,17 +660,7 @@ class MainActivity : Activity() {
 
         val canvas = Canvas(finalBitmap)
 
-        canvas.drawRect(
-            0f,
-            0f,
-            finalBitmap.width.toFloat(),
-            finalBitmap.height.toFloat(),
-            Paint().apply {
-                color = Color.BLACK
-                alpha = 51
-            }
-        )
-
+        // No dark overlay: the wallpaper is assumed to have a black background.
         drawCalendarStrip(
             this,
             canvas,
@@ -688,8 +678,8 @@ class MainActivity : Activity() {
         return Pair(lockBitmap, finalBitmap)
     }
 
-    // QUOTE: rotated 90 degrees clockwise along the extreme right edge.
-    // Author appears above the quote, sharing the same right-edge alignment.
+    // Quote is drawn vertically along the extreme right edge.
+    // Author comes first, followed by the quote.
     private fun drawQuoteOverlay(
         context: android.content.Context,
         canvas: Canvas,
@@ -699,12 +689,12 @@ class MainActivity : Activity() {
         val selected = QuoteRepository.getRandomQuote(context)
         val density = context.resources.displayMetrics.density
 
-        val edgeMargin = width * 0.025f
-        val topMargin = height * 0.08f
-        val bottomMargin = height * 0.08f
+        val edgeMargin = width * 0.022f
+        val topMargin = height * 0.07f
+        val bottomMargin = height * 0.07f
 
         val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(241, 241, 241)
+            color = Color.WHITE
             textSize = 12f * density
             typeface = Typeface.create(
                 "sans-serif-medium",
@@ -712,15 +702,15 @@ class MainActivity : Activity() {
             )
             textAlign = Paint.Align.LEFT
             setShadowLayer(
-                3f * density,
-                1f * density,
-                1f * density,
+                2.5f * density,
+                0f,
+                0f,
                 Color.BLACK
             )
         }
 
         val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(241, 241, 241)
+            color = Color.WHITE
             textSize = 17f * density
             typeface = Typeface.create(
                 "sans-serif",
@@ -728,37 +718,40 @@ class MainActivity : Activity() {
             )
             textAlign = Paint.Align.LEFT
             setShadowLayer(
-                3f * density,
-                1f * density,
-                1f * density,
+                2.5f * density,
+                0f,
+                0f,
                 Color.BLACK
             )
         }
 
-        val availableLength =
-            (height - topMargin - bottomMargin).coerceAtLeast(1f)
-
         val author = selected.author.trim()
-        val authorSpace = if (author.isNotBlank()) {
-            authorPaint.textSize * 2f
+        val quote = selected.text.trim()
+
+        val authorLength = if (author.isNotBlank()) {
+            authorPaint.measureText(author)
         } else {
             0f
         }
 
-        val quoteStart = topMargin + authorSpace
+        val authorGap = if (author.isNotBlank()) {
+            18f * density
+        } else {
+            0f
+        }
+
+        val quoteStart = topMargin + authorLength + authorGap
         val quoteAvailable =
             (height - bottomMargin - quoteStart).coerceAtLeast(1f)
 
-        // Reduce quote font size when necessary to keep it inside the screen.
         while (
-            quotePaint.measureText(selected.text) > quoteAvailable &&
+            quotePaint.measureText(quote) > quoteAvailable &&
             quotePaint.textSize > 10f * density
         ) {
             quotePaint.textSize -= density
         }
 
-        // If the quote is still too long, shorten it safely.
-        var visibleQuote = selected.text.trim()
+        var visibleQuote = quote
 
         if (quotePaint.measureText(visibleQuote) > quoteAvailable) {
             val ellipsis = "…"
@@ -783,12 +776,8 @@ class MainActivity : Activity() {
 
         canvas.save()
 
-        // Rotate clockwise. The text baseline sits close to the right edge.
-        canvas.rotate(
-            90f,
-            width.toFloat(),
-            0f
-        )
+        // Clockwise rotation: local x becomes screen y.
+        canvas.rotate(90f, width.toFloat(), 0f)
 
         if (author.isNotBlank()) {
             canvas.drawText(
@@ -809,11 +798,9 @@ class MainActivity : Activity() {
         canvas.restore()
     }
 
-    // CALENDAR:
-    // Three rows, seven rectangular tiles per row.
-    // Calendar begins at 45% of screen width.
-    // All tiles use the same dark translucent background.
-    // Saturday and Sunday labels and dates are bright red.
+    // Three compact rows of seven outlined rectangular tiles.
+    // Calendar starts at 45% of screen width.
+    // Right side is reserved for the vertical quote.
     private fun drawCalendarStrip(
         context: android.content.Context,
         canvas: Canvas,
@@ -822,10 +809,13 @@ class MainActivity : Activity() {
     ) {
         val density = context.resources.displayMetrics.density
 
-        // Leave the left 45% of the wallpaper clear.
         val startX = width * 0.45f
-        val rightMargin = width * 0.02f
-        val gap = width * 0.002f
+
+        // Leave a clear strip at the right for the vertical quote.
+        val rightMargin = width * 0.065f
+
+        // Very small horizontal gap between outlined tiles.
+        val gap = 1.5f * density
 
         val columns = 7
 
@@ -834,17 +824,17 @@ class MainActivity : Activity() {
 
         val tileWidth = availableWidth / columns
 
+        // Compact vertical layout.
         val topMargin = height * 0.035f
-        val tileHeight = height * 0.038f
-        val rowGap = height * 0.004f
+        val tileHeight = height * 0.029f
+        val rowGap = height * 0.003f
 
         val dayLabels = listOf(
-            "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"
+            "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"
         )
 
         val today = Calendar.getInstance()
 
-        // Find Monday of the current week.
         val currentMonday = (today.clone() as Calendar).apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
@@ -858,94 +848,68 @@ class MainActivity : Activity() {
             add(Calendar.DAY_OF_YEAR, -daysFromMonday)
         }
 
-        // Identical background for every tile.
-        val tileBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.BLACK
-            alpha = 100
-        }
-
-        val normalText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(245, 245, 245)
-            textSize = 12f * density
-            typeface = Typeface.create(
-                "sans-serif-medium",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.CENTER
+        // Transparent fill: only the rectangle outline is drawn.
+        val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f * density
+            color = Color.rgb(205, 205, 205)
             setShadowLayer(
                 2f * density,
-                1f * density,
-                1f * density,
+                0f,
+                0f,
                 Color.BLACK
             )
         }
 
-        val dateText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(245, 245, 245)
-            textSize = 16f * density
-            typeface = Typeface.create(
-                "sans-serif",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.CENTER
-            setShadowLayer(
-                2f * density,
-                1f * density,
-                1f * density,
-                Color.BLACK
-            )
-        }
-
-        // Bright red for Saturday and Sunday.
-        val weekendText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(255, 45, 45)
-            textSize = 16f * density
-            typeface = Typeface.create(
-                "sans-serif-medium",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.CENTER
-            setShadowLayer(
-                2f * density,
-                1f * density,
-                1f * density,
-                Color.BLACK
-            )
-        }
-
-        val weekendDayText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(255, 45, 45)
-            textSize = 12f * density
-            typeface = Typeface.create(
-                "sans-serif-medium",
-                Typeface.NORMAL
-            )
-            textAlign = Paint.Align.CENTER
-            setShadowLayer(
-                2f * density,
-                1f * density,
-                1f * density,
-                Color.BLACK
-            )
-        }
-
-        val todayText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        val normalDayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            textSize = 16f * density
+            textSize = 13f * density
             typeface = Typeface.create(
                 "sans-serif-bold",
                 Typeface.NORMAL
             )
             textAlign = Paint.Align.CENTER
             setShadowLayer(
-                2f * density,
-                1f * density,
-                1f * density,
+                2.5f * density,
+                0f,
+                0f,
                 Color.BLACK
             )
         }
 
-        fun drawBlock(
+        val weekendDayPaint = Paint(normalDayPaint).apply {
+            color = Color.rgb(255, 40, 40)
+        }
+
+        val normalDatePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = 20f * density
+            typeface = Typeface.create(
+                "sans-serif-medium",
+                Typeface.NORMAL
+            )
+            textAlign = Paint.Align.CENTER
+            setShadowLayer(
+                2.5f * density,
+                0f,
+                0f,
+                Color.BLACK
+            )
+        }
+
+        val weekendDatePaint = Paint(normalDatePaint).apply {
+            color = Color.rgb(255, 40, 40)
+        }
+
+        val todayPaint = Paint(normalDatePaint).apply {
+            typeface = Typeface.create(
+                "sans-serif-black",
+                Typeface.NORMAL
+            )
+            color = Color.WHITE
+        }
+
+        fun drawTile(
             column: Int,
             row: Int,
             label: String,
@@ -956,9 +920,10 @@ class MainActivity : Activity() {
             val top = topMargin + row * (tileHeight + rowGap)
             val bottom = top + tileHeight
 
+            // Thin outlined rectangular tile, with no filled background.
             canvas.drawRect(
                 RectF(left, top, right, bottom),
-                tileBackground
+                outlinePaint
             )
 
             val baseline =
@@ -973,21 +938,22 @@ class MainActivity : Activity() {
             )
         }
 
-        // Row 1: Monday through Sunday.
+        // Row 1: weekday labels.
         for (column in 0 until columns) {
-            val textPaint =
-                if (column >= 5) weekendDayText else normalText
-
-            drawBlock(
+            drawTile(
                 column = column,
                 row = 0,
                 label = dayLabels[column],
-                textPaint = textPaint
+                textPaint = if (column >= 5) {
+                    weekendDayPaint
+                } else {
+                    normalDayPaint
+                }
             )
         }
 
         // Row 2: current week.
-        // Row 3: next week.
+        // Row 3: following week.
         for (row in 0..1) {
             for (column in 0 until columns) {
                 val date = (currentMonday.clone() as Calendar).apply {
@@ -1002,12 +968,12 @@ class MainActivity : Activity() {
                 val isWeekend = column >= 5
 
                 val textPaint = when {
-                    isToday -> todayText
-                    isWeekend -> weekendText
-                    else -> dateText
+                    isToday -> todayPaint
+                    isWeekend -> weekendDatePaint
+                    else -> normalDatePaint
                 }
 
-                drawBlock(
+                drawTile(
                     column = column,
                     row = row + 1,
                     label = date.get(Calendar.DAY_OF_MONTH).toString(),
