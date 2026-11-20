@@ -166,13 +166,20 @@ val nightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
         writeHistory(app, historyFile, used)
 
         prefs.edit()
-            .putString(KEY_CURRENT_IMAGE, chosen.toString())
-            .apply()
+    .putString(KEY_CURRENT_IMAGE, chosen.toString())
+    .apply()
 
-        showNotification(
-            app,
-            displayName(app, chosen) ?: "Photo"
-        )
+// Night mode is a one-time wallpaper change.
+if (nightMode) {
+    prefs.edit()
+        .putBoolean(KEY_NIGHT_MODE, false)
+        .apply()
+}
+
+showNotification(
+    app,
+    displayName(app, chosen) ?: "Photo"
+)
     }
 
     // Delete the currently displayed original photo and change wallpaper.
