@@ -45,15 +45,9 @@ object WallpaperEngine {
     private const val CHANNEL_ID = "wallpaper_changes"
     private const val NOTIFICATION_ID = 701
 
-    private const val ACTION_DELETE =
-        "com.example.randomphotowallpaper.DELETE_AND_NEXT"
-
-    private const val ACTION_ADD_FOLDER =
-        "com.example.randomphotowallpaper.ADD_FOLDER"
-
-    private const val ACTION_TOGGLE_NIGHT =
-        "com.example.randomphotowallpaper.TOGGLE_NIGHT"
-
+    private const val ACTION_DELETE = "notepad.autowall.DELETE_AND_NEXT"
+    private const val ACTION_ADD_FOLDER = "notepad.autowall.ADD_FOLDER"
+    private const val ACTION_TOGGLE_NIGHT = "notepad.autowall.TOGGLE_NIGHT"
     private const val OVERLAY_ALPHA = 71 // 20% black
 
     // Main entry point for manual and scheduled wallpaper changes.
