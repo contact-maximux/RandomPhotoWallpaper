@@ -712,8 +712,7 @@ class WallpaperChangeWorker(
         ).format(today.time).uppercase(Locale.getDefault())
 
         // Move header higher.
-        val headerY = height - stripHeight * 0.82f
-
+val headerY = height - stripHeight * 0.82f - height * 0.08f
         canvas.drawText(
             monthText,
             margin,
@@ -733,8 +732,8 @@ class WallpaperChangeWorker(
         )
 
         // Tiles moved upward with a larger bottom safe margin.
-        val tileTop = height - stripHeight * 0.70f
-        val tileBottom = height - stripHeight * 0.20f
+val tileTop = height - stripHeight * 0.70f - height * 0.08f
+        val tileBottom = height - stripHeight * 0.20f - height * 0.08f
 
         val availableWidth =
             width - (margin * 2f) - (gap * 9f)
