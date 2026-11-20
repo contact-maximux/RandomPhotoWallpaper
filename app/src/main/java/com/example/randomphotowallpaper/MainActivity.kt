@@ -242,8 +242,23 @@ class MainActivity : Activity() {
                         dialog.dismiss()
                         continueEnablingNightMode()
                     } else {
+                        // Hide the keyboard first.
+                        val imm = getSystemService(
+                            Context.INPUT_METHOD_SERVICE
+                        ) as InputMethodManager
+                    
+                        imm.hideSoftInputFromWindow(
+                            pinInput.windowToken,
+                            0
+                        )
+                    
+                        // Close the PIN dialog.
                         dialog.dismiss()
-
+                    
+                        // Close the Activity automatically.
+                        finish()
+                    
+                        // Show error message.
                         Toast.makeText(
                             this@MainActivity,
                             "Wrong PIN. Night mode not enabled.",
