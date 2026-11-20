@@ -682,10 +682,10 @@ private fun drawQuoteOverlay(
     val selected = quotes.random()
     val density = context.resources.displayMetrics.density
 
-   val left = width / 3f - 5f
+   val left = width / 3f + 5f
 val top = height * 0.052f
 
-    val maxWidth = width * 0.40f
+    val maxWidth = width - left - (width * 0.08f)
 
     val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
@@ -753,6 +753,7 @@ y += 1f * density
 
 
 
+
 private fun drawCalendarStrip(
     context: android.content.Context,
     canvas: Canvas,
@@ -771,56 +772,17 @@ private fun drawCalendarStrip(
     val tileHeight = height * 0.05f
     val tileTop = tileBottom - tileHeight
 
-    // All calendar text is white.
+    // Month heading - disabled for now.
+    // Uncomment this block whenever you want the month name back.
+    /*
     val headingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textSize = 52f * density
-        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         textAlign = Paint.Align.CENTER
         setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
     }
 
-    val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = 18f * density
-        typeface = Typeface.create("sans-serif", Typeface.BOLD)
-        textAlign = Paint.Align.CENTER
-        setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
-    }
-
-    val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = 26f * density
-        typeface = Typeface.create("sans-serif", Typeface.BOLD)
-        textAlign = Paint.Align.CENTER
-        setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
-    }
-
-    val smallLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textSize = 16f * density
-        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
-        textAlign = Paint.Align.LEFT
-    }
-
-    val weekdayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.BLACK
-        alpha = 51
-    }
-
-    // Almost-black weekend background.
-    val weekendBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(21, 21, 21)
-        alpha = 255
-    }
-
-    // Today's background: cyan, without a border.
-    val todayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(0, 255, 255)
-        alpha = 255
-    }
-
-    // Month heading bottom sits 2 px above the calendar strip.
     val monthText = SimpleDateFormat(
         "MMMM yyyy",
         Locale.getDefault()
@@ -835,13 +797,56 @@ private fun drawCalendarStrip(
         headingBaseline,
         headingPaint
     )
+    */
 
-    canvas.drawText(
-        "10 DAYS",
-        width - margin - 70f * density,
-        headingBaseline,
-        smallLabelPaint
-    )
+    // Day names: white, normal weight.
+    val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 18f * density
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        textAlign = Paint.Align.CENTER
+        setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
+    }
+
+    // Dates: white, normal weight.
+    val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textSize = 26f * density
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        textAlign = Paint.Align.CENTER
+        setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
+    }
+
+    val weekdayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.BLACK
+        alpha = 51
+    }
+
+    // Weekends: white rectangle with black text.
+    val weekendBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        alpha = 255
+    }
+
+    val weekendTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.BLACK
+        textSize = 18f * density
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        textAlign = Paint.Align.CENTER
+    }
+
+    val weekendDatePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.BLACK
+        textSize = 26f * density
+        typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        textAlign = Paint.Align.CENTER
+    }
+
+    // Today: cyan background, no border.
+    val todayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(0, 255, 255)
+        alpha = 255
+    }
 
     for (index in 0 until 10) {
         val date = (today.clone() as Calendar).apply {
@@ -890,23 +895,27 @@ private fun drawCalendarStrip(
 
         val centerX = (left + right) / 2f
 
-        // Text centered inside the bottom-aligned rectangle.
+        val currentDayPaint =
+            if (isWeekend) weekendTextPaint else dayPaint
+
+        val currentDatePaint =
+            if (isWeekend) weekendDatePaint else datePaint
+
         canvas.drawText(
             dayName,
             centerX,
             tileTop + tileHeight * 0.36f,
-            dayPaint
+            currentDayPaint
         )
 
         canvas.drawText(
             dayNumber,
             centerX,
             tileTop + tileHeight * 0.90f,
-            datePaint
+            currentDatePaint
         )
     }
 }
-
 
     private fun saveDebugWallpaper(bitmap: Bitmap) {
         val fileName = "wall.jpg"
