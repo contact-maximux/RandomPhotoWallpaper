@@ -1,4 +1,3 @@
-
 package com.example.randomphotowallpaper
 
 import android.app.Activity
@@ -55,7 +54,6 @@ class MainActivity : Activity() {
 
         createNotificationChannel()
 
-        // Request notification permission before starting the app workflow.
         if (
             Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(
@@ -102,7 +100,6 @@ class MainActivity : Activity() {
         )
 
         if (requestCode == 501) {
-            // Continue even if notification permission is denied.
             startApp()
         }
     }
@@ -236,7 +233,6 @@ class MainActivity : Activity() {
             )
 
             try {
-                // Save the home-screen version with quote and calendar.
                 try {
                     saveDebugWallpaper(homeBitmap)
                     Log.i(
@@ -253,7 +249,6 @@ class MainActivity : Activity() {
 
                 val wallpaperManager = WallpaperManager.getInstance(this)
 
-                // FIRST: Apply the clean photo to the lock screen.
                 wallpaperManager.setBitmap(
                     lockBitmap,
                     null,
@@ -261,7 +256,6 @@ class MainActivity : Activity() {
                     WallpaperManager.FLAG_LOCK
                 )
 
-                // SECOND: Apply the photo with quote and calendar to home screen.
                 wallpaperManager.setBitmap(
                     homeBitmap,
                     null,
@@ -531,12 +525,12 @@ class MainActivity : Activity() {
             .setAutoCancel(true)
             .addAction(
                 android.R.drawable.ic_menu_delete,
-                "Delete & change next",
+                "Delete Wallpaper",
                 deletePending
             )
             .addAction(
                 android.R.drawable.ic_menu_add,
-                "Add more folder",
+                "Add Folder",
                 addPending
             )
             .build()
@@ -659,17 +653,13 @@ class MainActivity : Activity() {
 
         scaled.recycle()
 
-        // Make a clean copy BEFORE drawing the quote and calendar.
-        // This copy is used for the lock screen.
         val lockBitmap = finalBitmap.copy(
             Bitmap.Config.ARGB_8888,
             true
         ) ?: error("Unable to prepare lock screen wallpaper.")
 
-        // The original finalBitmap will become the home-screen version.
         val canvas = Canvas(finalBitmap)
 
-        // Existing 20% black overlay.
         canvas.drawRect(
             0f,
             0f,
@@ -704,30 +694,15 @@ class MainActivity : Activity() {
         width: Int,
         height: Int
     ) {
-        val quotes = listOf(
-            "The journey of a thousand miles begins with one step." to "Lao Tzu",
-            "Believe you can and you're halfway there." to "Theodore Roosevelt",
-            "It always seems impossible until it's done." to "Nelson Mandela",
-            "What we think, we become." to "Buddha",
-            "Learning never exhausts the mind." to "Leonardo da Vinci",
-            "The secret of getting ahead is getting started." to "Mark Twain",
-            "Great things are done by a series of small things brought together." to "Vincent van Gogh",
-            "Be yourself; everyone else is already taken." to "Oscar Wilde",
-            "Dream big and dare to fail." to "Norman Vaughan",
-            "The only way to do great work is to love what you do." to "Steve Jobs",
-            "Life is like riding a bicycle. To keep your balance, you must keep moving." to "Albert Einstein",
-            "Only those who will risk going too far can possibly find out how far one can go." to "T. S. Eliot",
-            "Act as if what you do makes a difference. It does." to "William James"
-        )
-
-        val selected = quotes.random()
+        val selected = QuoteRepository.getRandomQuote(context)
         val density = context.resources.displayMetrics.density
 
         val left = width * 0.65f
         val maxWidth = width * 0.30f
         val top = height * 0.15f
+
         val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(241, 241, 241) // #F1F1F1
+            color = Color.rgb(241, 241, 241)
             textSize = 14f * density
             typeface = Typeface.create("sans-serif", Typeface.NORMAL)
             textAlign = Paint.Align.LEFT
@@ -740,7 +715,7 @@ class MainActivity : Activity() {
         }
 
         val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(241, 241, 241) // #F1F1F1
+            color = Color.rgb(241, 241, 241)
             textSize = 11f * density
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             textAlign = Paint.Align.LEFT
@@ -752,7 +727,7 @@ class MainActivity : Activity() {
             )
         }
 
-        val words = selected.first.split(" ")
+        val words = selected.text.trim().split(Regex("\\s+"))
         val lines = mutableListOf<String>()
         var currentLine = ""
 
@@ -761,13 +736,12 @@ class MainActivity : Activity() {
                 if (currentLine.isEmpty()) word
                 else "$currentLine $word"
 
-            if (
-                quotePaint.measureText(candidate) <= maxWidth ||
-                currentLine.isEmpty()
-            ) {
+            if (quotePaint.measureText(candidate) <= maxWidth) {
                 currentLine = candidate
             } else {
-                lines.add(currentLine)
+                if (currentLine.isNotEmpty()) {
+                    lines.add(currentLine)
+                }
                 currentLine = word
             }
 
@@ -786,8 +760,10 @@ class MainActivity : Activity() {
             y += lineHeight
         }
 
-        y += 1f * density
-        canvas.drawText(selected.second, left, y, authorPaint)
+        if (selected.author.isNotBlank()) {
+            y += 1f * density
+            canvas.drawText(selected.author, left, y, authorPaint)
+        }
     }
 
     private fun drawCalendarStrip(
@@ -803,39 +779,10 @@ class MainActivity : Activity() {
         val gap = width * 0.003f
         val tileWidth = (width - margin * 2f - gap * 9f) / 10f
 
-        // Calendar at the extreme bottom.
         val tileBottom = height.toFloat()
         val tileHeight = height * 0.05f
         val tileTop = tileBottom - tileHeight
 
-        // Month heading - disabled for now.
-        // Uncomment this block whenever you want the month name back.
-        /*
-        val headingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(241, 241, 241)
-            textSize = 52f * density
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            textAlign = Paint.Align.CENTER
-            setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
-        }
-
-        val monthText = SimpleDateFormat(
-            "MMMM yyyy",
-            Locale.getDefault()
-        ).format(today.time)
-
-        val headingBaseline =
-            tileTop - 2f - headingPaint.fontMetrics.descent
-
-        canvas.drawText(
-            monthText,
-            width / 2f,
-            headingBaseline,
-            headingPaint
-        )
-        */
-
-        // Day names: #F1F1F1, normal weight.
         val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(241, 241, 241)
             textSize = 18f * density
@@ -844,7 +791,6 @@ class MainActivity : Activity() {
             setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
         }
 
-        // Dates: #F1F1F1, normal weight.
         val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(241, 241, 241)
             textSize = 26f * density
@@ -858,7 +804,6 @@ class MainActivity : Activity() {
             alpha = 51
         }
 
-        // Weekends: white rectangle with dark text.
         val weekendBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             alpha = 255
@@ -878,7 +823,6 @@ class MainActivity : Activity() {
             textAlign = Paint.Align.CENTER
         }
 
-        // Today: cyan background, no border.
         val todayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(0, 255, 255)
             alpha = 255
