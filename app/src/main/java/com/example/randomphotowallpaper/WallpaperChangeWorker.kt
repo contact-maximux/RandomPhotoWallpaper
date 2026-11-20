@@ -1,6 +1,5 @@
 
-package com.example.randomphotowallpaper
-
+package notepad.autowall
 import android.content.Context
 import android.content.res.Configuration
 import android.app.NotificationManager
