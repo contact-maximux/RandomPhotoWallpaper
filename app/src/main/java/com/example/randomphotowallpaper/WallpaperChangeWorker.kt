@@ -1,16 +1,15 @@
+
 package com.example.randomphotowallpaper
+
 import android.content.ContentValues
-import android.os.Environment
-import android.provider.MediaStore
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.WallpaperManager
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -20,8 +19,10 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.os.PowerManager
 import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.util.TypedValue
 import androidx.exifinterface.media.ExifInterface
 import androidx.work.Constraints
@@ -91,34 +92,52 @@ class WallpaperChangeWorker(
             }
 
             val chosen = Uri.parse((currentIds - used).random())
-            val bitmap = decodeAndCrop(context, chosen)
-            // Save exact generated wallpaper for calendar debugging.
+
+            // Create clean lock-screen and decorated home-screen images.
+            val (lockBitmap, homeBitmap) = decodeAndCrop(
+                context,
+                chosen
+            )
+
             try {
-                saveDebugWallpaper(context, bitmap)
-            
-                android.util.Log.i(
-                    "WallpaperDebug",
-                    "SUCCESS: Saved Pictures/RandomWallpaperDebug/wall.jpg"
-                )
-            
-            } catch (e: Exception) {
-            
-                android.util.Log.e(
-                    "WallpaperDebug",
-                    "FAILED TO SAVE WALLPAPER",
-                    e
-                )
-            }
-            try {
-                WallpaperManager.getInstance(context).setBitmap(
-                    bitmap,
+                // Save the decorated home-screen image for debugging.
+                try {
+                    saveDebugWallpaper(context, homeBitmap)
+
+                    android.util.Log.i(
+                        "WallpaperDebug",
+                        "SUCCESS: Saved Pictures/RandomWallpaperDebug/wall.jpg"
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e(
+                        "WallpaperDebug",
+                        "FAILED TO SAVE WALLPAPER",
+                        e
+                    )
+                }
+
+                val wallpaperManager =
+                    WallpaperManager.getInstance(context)
+
+                // FIRST: Clean photo only on the lock screen.
+                wallpaperManager.setBitmap(
+                    lockBitmap,
                     null,
                     true,
-                    WallpaperManager.FLAG_SYSTEM or
-                        WallpaperManager.FLAG_LOCK
+                    WallpaperManager.FLAG_LOCK
                 )
+
+                // SECOND: Same photo with quote and calendar on home screen.
+                wallpaperManager.setBitmap(
+                    homeBitmap,
+                    null,
+                    true,
+                    WallpaperManager.FLAG_SYSTEM
+                )
+
             } finally {
-                bitmap.recycle()
+                lockBitmap.recycle()
+                homeBitmap.recycle()
             }
 
             used.add(chosen.toString())
@@ -135,7 +154,12 @@ class WallpaperChangeWorker(
 
             Result.success()
 
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.e(
+                "WallpaperWorker",
+                "Wallpaper update failed",
+                e
+            )
             Result.retry()
         }
     }
@@ -149,7 +173,7 @@ class WallpaperChangeWorker(
 
     private fun isLandscape(context: Context): Boolean {
         return context.resources.configuration.orientation ==
-            Configuration.ORIENTATION_LANDSCAPE
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
     }
 
     private fun isPowerSaveMode(context: Context): Boolean {
@@ -416,39 +440,80 @@ class WallpaperChangeWorker(
                 .build()
         )
     }
-    
-private fun saveDebugWallpaper(
-    context: Context,
-    bitmap: Bitmap
-) {
-    val fileName = "wall.jpg"
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        val resolver = context.contentResolver
-        val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-        val relativePath =
-            "${Environment.DIRECTORY_PICTURES}/RandomWallpaperDebug/"
+    private fun saveDebugWallpaper(
+        context: Context,
+        bitmap: Bitmap
+    ) {
+        val fileName = "wall.jpg"
 
-        // Replace the previous debug image.
-        resolver.delete(
-            collection,
-            "${MediaStore.Images.Media.DISPLAY_NAME}=? AND " +
-                "${MediaStore.Images.Media.RELATIVE_PATH}=?",
-            arrayOf(fileName, relativePath)
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val resolver = context.contentResolver
+            val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
-        val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
-            put(MediaStore.Images.Media.IS_PENDING, 1)
-        }
+            val relativePath =
+                "${Environment.DIRECTORY_PICTURES}/RandomWallpaperDebug/"
 
-        val imageUri = resolver.insert(collection, values)
-            ?: error("Could not create debug image")
+            resolver.delete(
+                collection,
+                "${MediaStore.Images.Media.DISPLAY_NAME}=? AND " +
+                    "${MediaStore.Images.Media.RELATIVE_PATH}=?",
+                arrayOf(fileName, relativePath)
+            )
 
-        try {
-            resolver.openOutputStream(imageUri)?.use { stream ->
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
+
+            val imageUri = resolver.insert(collection, values)
+                ?: error("Could not create debug image")
+
+            try {
+                resolver.openOutputStream(imageUri)?.use { stream ->
+                    check(
+                        bitmap.compress(
+                            Bitmap.CompressFormat.JPEG,
+                            95,
+                            stream
+                        )
+                    ) {
+                        "Could not compress debug image"
+                    }
+                } ?: error("Could not open debug image")
+
+                val completedValues = ContentValues().apply {
+                    put(MediaStore.Images.Media.IS_PENDING, 0)
+                }
+
+                resolver.update(imageUri, completedValues, null, null)
+
+                android.util.Log.i(
+                    "WallpaperDebug",
+                    "Image saved successfully: $imageUri"
+                )
+            } catch (e: Exception) {
+                resolver.delete(imageUri, null, null)
+                throw e
+            }
+
+        } else {
+            val directory = File(
+                context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
+                "RandomWallpaperDebug"
+            )
+
+            if (!directory.exists()) {
+                check(directory.mkdirs()) {
+                    "Could not create debug directory"
+                }
+            }
+
+            val file = File(directory, fileName)
+
+            FileOutputStream(file).use { stream ->
                 check(
                     bitmap.compress(
                         Bitmap.CompressFormat.JPEG,
@@ -456,45 +521,16 @@ private fun saveDebugWallpaper(
                         stream
                     )
                 ) {
-                    "Could not compress debug image"
+                    "Could not write debug image"
                 }
-            } ?: error("Could not open debug image")
-
-            val completedValues = ContentValues().apply {
-                put(MediaStore.Images.Media.IS_PENDING, 0)
             }
-
-            resolver.update(imageUri, completedValues, null, null)
-            android.util.Log.i(
-                "WallpaperDebug",
-                "Image saved successfully: $imageUri"
-            )
-        } catch (e: Exception) {
-            resolver.delete(imageUri, null, null)
-            throw e
-        }
-
-    } else {
-        val directory = File(
-            context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
-            "RandomWallpaperDebug"
-        )
-
-        directory.mkdirs()
-
-        val file = File(directory, fileName)
-
-        FileOutputStream(file).use { stream ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
         }
     }
-}
-
 
     private fun decodeAndCrop(
         context: Context,
         uri: Uri
-    ): Bitmap {
+    ): Pair<Bitmap, Bitmap> {
         val metrics = context.resources.displayMetrics
 
         val targetWidth = metrics.widthPixels.coerceAtLeast(1)
@@ -592,47 +628,58 @@ private fun saveDebugWallpaper(
             cropped.recycle()
         }
 
-        val darkened = scaled.copy(
+        // Create two identical copies before adding any overlays.
+        val lockBitmap = scaled.copy(
             Bitmap.Config.ARGB_8888,
             true
-        ) ?: error("Overlay failed")
+        ) ?: error("Could not prepare lock-screen image")
+
+        val homeBitmap = try {
+            scaled.copy(
+                Bitmap.Config.ARGB_8888,
+                true
+            ) ?: error("Could not prepare home-screen image")
+        } catch (e: Exception) {
+            lockBitmap.recycle()
+            scaled.recycle()
+            throw e
+        }
 
         scaled.recycle()
 
-        val canvas = Canvas(darkened)
+        // Draw all overlays on the home-screen copy only.
+        val canvas = Canvas(homeBitmap)
 
-        // Existing 20% black wallpaper overlay.
+        // Existing 20% black overlay.
         canvas.drawRect(
             0f,
             0f,
-            darkened.width.toFloat(),
-            darkened.height.toFloat(),
+            homeBitmap.width.toFloat(),
+            homeBitmap.height.toFloat(),
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.BLACK
                 alpha = 51
             }
         )
 
-        // Quote below camera area in upper-right half.
         drawQuoteOverlay(
             context,
             canvas,
-            darkened.width,
-            darkened.height
+            homeBitmap.width,
+            homeBitmap.height
         )
 
-        // Calendar at bottom.
         drawCalendarStrip(
             context,
             canvas,
-            darkened.width,
-            darkened.height
+            homeBitmap.width,
+            homeBitmap.height
         )
 
-        return darkened
+        return Pair(lockBitmap, homeBitmap)
     }
 
-    // Random quote in the upper-right half of the wallpaper.
+    // Quote overlay matching MainActivity.
     private fun drawQuoteOverlay(
         context: Context,
         canvas: Canvas,
@@ -640,35 +687,31 @@ private fun saveDebugWallpaper(
         height: Int
     ) {
         val quotes = listOf(
-            Pair("The journey of a thousand miles begins with a single step.", "Lao Tzu"),
-            Pair("Believe you can and you're halfway there.", "Theodore Roosevelt"),
-            Pair("It always seems impossible until it's done.", "Nelson Mandela"),
-            Pair("What you think, you become.", "Buddha"),
-            Pair("Simplicity is the ultimate sophistication.", "Leonardo da Vinci"),
-            Pair("The secret of getting ahead is getting started.", "Mark Twain"),
-            Pair("Great things are done by a series of small things brought together.", "Vincent van Gogh"),
-            Pair("Be yourself; everyone else is already taken.", "Oscar Wilde"),
-            Pair("Dream big and dare to fail.", "Norman Vaughan"),
-            Pair("Do what you can, with what you have, where you are.", "Theodore Roosevelt"),
-            Pair("Stay hungry. Stay foolish.", "Steve Jobs"),
-            Pair("In the middle of difficulty lies opportunity.", "Albert Einstein"),
-            Pair("Every moment is a fresh beginning.", "T. S. Eliot"),
-            Pair("Act as if what you do makes a difference. It does.", "William James")
+            "The journey of a thousand miles begins with one step." to "Lao Tzu",
+            "Believe you can and you're halfway there." to "Theodore Roosevelt",
+            "It always seems impossible until it's done." to "Nelson Mandela",
+            "What we think, we become." to "Buddha",
+            "Learning never exhausts the mind." to "Leonardo da Vinci",
+            "The secret of getting ahead is getting started." to "Mark Twain",
+            "Great things are done by a series of small things brought together." to "Vincent van Gogh",
+            "Be yourself; everyone else is already taken." to "Oscar Wilde",
+            "Dream big and dare to fail." to "Norman Vaughan",
+            "The only way to do great work is to love what you do." to "Steve Jobs",
+            "Life is like riding a bicycle. To keep your balance, you must keep moving." to "Albert Einstein",
+            "Only those who will risk going too far can possibly find out how far one can go." to "T. S. Eliot",
+            "Act as if what you do makes a difference. It does." to "William James"
         )
 
         val selected = quotes.random()
-        val density = context.resources.displayMetrics.scaledDensity
+        val density = context.resources.displayMetrics.density
 
-        val textSize = 14f * density
-        val authorSize = 11f * density
-
-        val left = width * 0.55f
-        val maxWidth = width * 0.40f
-        val top = height * 0.15f
+        val left = width / 3f + 5f
+        val top = height * 0.052f
+        val maxWidth = width - left - (width * 0.08f)
 
         val quotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            this.textSize = textSize
+            color = Color.rgb(241, 241, 241) // #F1F1F1
+            textSize = 14f * density
             typeface = Typeface.create("sans-serif", Typeface.NORMAL)
             textAlign = Paint.Align.LEFT
             setShadowLayer(
@@ -679,258 +722,217 @@ private fun saveDebugWallpaper(
             )
         }
 
-        // val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        //     color = Color.WHITE
-        //     textSize = authorSize
-        //     typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        //     textAlign = Paint.Align.LEFT
-        //     setShadowLayer(
-        //         3f * density,
-        //         1f * density,
-        //         1f * density,
-        //         Color.BLACK
-        //     )
-        // }
+        val authorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(241, 241, 241) // #F1F1F1
+            textSize = 11f * density
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            textAlign = Paint.Align.LEFT
+            setShadowLayer(
+                3f * density,
+                1f * density,
+                1f * density,
+                Color.BLACK
+            )
+        }
 
         val words = selected.first.split(" ")
         val lines = mutableListOf<String>()
         var currentLine = ""
 
         for (word in words) {
-            val testLine = if (currentLine.isEmpty()) {
-                word
-            } else {
-                "$currentLine $word"
-            }
+            val candidate =
+                if (currentLine.isEmpty()) word
+                else "$currentLine $word"
 
             if (
-                quotePaint.measureText(testLine) <= maxWidth ||
+                quotePaint.measureText(candidate) <= maxWidth ||
                 currentLine.isEmpty()
             ) {
-                currentLine = testLine
+                currentLine = candidate
             } else {
                 lines.add(currentLine)
                 currentLine = word
             }
+
+            if (lines.size == 2) break
         }
 
-        if (currentLine.isNotEmpty()) {
+        if (lines.size < 2 && currentLine.isNotEmpty()) {
             lines.add(currentLine)
         }
 
-        val firstTwoLines = lines.take(2)
+        val lineHeight = quotePaint.textSize * 1.25f
+        var y = top + quotePaint.textSize
 
-        val visibleLines: List<String> =
-            if (lines.size > 2 && firstTwoLines.isNotEmpty()) {
-
-                val shortenedLastLine = generateSequence(firstTwoLines.last()) { line ->
-                    if (line.isEmpty()) null else line.dropLast(1).trimEnd()
-                }.firstOrNull {
-                    quotePaint.measureText("$it…") <= maxWidth
-                } ?: ""
-
-                listOf(
-                    firstTwoLines.first(),
-                    shortenedLastLine + "…"
-                )
-
-            } else {
-                firstTwoLines
-            }
-
-        val lineHeight = textSize * 1.35f
-
-        visibleLines.forEachIndexed { index, line ->
-            canvas.drawText(
-                line,
-                left,
-                top + index * lineHeight,
-                quotePaint
-            )
+        lines.take(2).forEach { line ->
+            canvas.drawText(line, left, y, quotePaint)
+            y += lineHeight
         }
 
-       
-
-        quotePaint.clearShadowLayer()
+        y += 1f * density
+        canvas.drawText(selected.second, left, y, authorPaint)
     }
 
-    // Updated minimal transparent 10-day calendar strip.
+    // Calendar strip matching MainActivity.
     private fun drawCalendarStrip(
         context: Context,
         canvas: Canvas,
         width: Int,
         height: Int
     ) {
+        val density = context.resources.displayMetrics.density
         val today = Calendar.getInstance()
 
-        // Calendar uses 20% of screen height.
-        val stripHeight = height * 0.20f
         val margin = width * 0.035f
         val gap = width * 0.003f
+        val tileWidth = (width - margin * 2f - gap * 9f) / 10f
 
-        val tertiaryAttr = context.resources.getIdentifier(
-            "colorTertiary",
-            "attr",
-            context.packageName
-        )
+        // Calendar at the extreme bottom.
+        val tileBottom = height.toFloat()
+        val tileHeight = height * 0.05f
+        val tileTop = tileBottom - tileHeight
 
-        val typedValue = TypedValue()
-
-        val tertiaryColor =
-            if (
-                tertiaryAttr != 0 &&
-                context.theme.resolveAttribute(
-                    tertiaryAttr,
-                    typedValue,
-                    true
-                )
-            ) {
-                typedValue.data
-            } else {
-                Color.rgb(127, 86, 217)
-            }
-
-        // Month and year heading.
-        val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = tertiaryColor
-            textSize = width * 0.030f
-            typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.LEFT
+        // Month heading - disabled for now.
+        // Uncomment this block whenever you want the month name back.
+        /*
+        val headingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(241, 241, 241)
+            textSize = 52f * density
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            textAlign = Paint.Align.CENTER
+            setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
         }
 
         val monthText = SimpleDateFormat(
             "MMMM yyyy",
             Locale.getDefault()
-        ).format(today.time).uppercase(Locale.getDefault())
+        ).format(today.time)
 
-        // Move header higher.
-val headerY = height - stripHeight * 0.82f - height * 0.08f
+        val headingBaseline =
+            tileTop - 2f - headingPaint.fontMetrics.descent
+
         canvas.drawText(
             monthText,
-            margin,
-            headerY,
-            headerPaint
+            width / 2f,
+            headingBaseline,
+            headingPaint
         )
+        */
 
-        headerPaint.color = Color.WHITE
-        headerPaint.textSize = width * 0.018f
-        headerPaint.textAlign = Paint.Align.RIGHT
-
-        canvas.drawText(
-            "10 DAYS",
-            width - margin,
-            headerY,
-            headerPaint
-        )
-
-        // Tiles moved upward with a larger bottom safe margin.
-val tileTop = height - stripHeight * 0.70f - height * 0.08f
-        val tileBottom = height - stripHeight * 0.20f - height * 0.08f
-
-        val availableWidth =
-            width - (margin * 2f) - (gap * 9f)
-
-        val tileWidth = availableWidth / 10f
-        val tileHeight = tileBottom - tileTop
-
+        // Day names: #F1F1F1, normal weight.
         val dayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
+            color = Color.rgb(241, 241, 241)
+            textSize = 18f * density
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
             textAlign = Paint.Align.CENTER
-            textSize = tileWidth * 0.22f
-            typeface = Typeface.DEFAULT_BOLD
+            setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
         }
 
+        // Dates: #F1F1F1, normal weight.
         val datePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
+            color = Color.rgb(241, 241, 241)
+            textSize = 26f * density
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
             textAlign = Paint.Align.CENTER
-            textSize = tileWidth * 0.39f
-            typeface = Typeface.DEFAULT_BOLD
+            setShadowLayer(2f * density, 1f, 1f, Color.BLACK)
         }
 
-        val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val weekdayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.BLACK
+            alpha = 51
+        }
 
-        val todayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        // Weekends: white rectangle with dark text.
+        val weekendBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            style = Paint.Style.STROKE
-            strokeWidth = width * 0.0015f
+            alpha = 255
         }
 
-        val dayFormat = SimpleDateFormat(
-            "EEE",
-            Locale.getDefault()
-        )
+        val weekendTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(20, 20, 20)
+            textSize = 18f * density
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            textAlign = Paint.Align.CENTER
+        }
 
-        // Safe version – each day gets its own Calendar instance
+        val weekendDatePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(20, 20, 20)
+            textSize = 26f * density
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            textAlign = Paint.Align.CENTER
+        }
+
+        // Today: cyan background, no border.
+        val todayBackground = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(0, 255, 255)
+            alpha = 255
+        }
+
         for (index in 0 until 10) {
-            val calendarDate = (today.clone() as Calendar).apply {
+            val date = (today.clone() as Calendar).apply {
                 add(Calendar.DAY_OF_YEAR, index)
             }
 
             val left = margin + index * (tileWidth + gap)
             val right = left + tileWidth
 
-            val dayOfWeek = calendarDate.get(Calendar.DAY_OF_WEEK)
+            val dayOfWeek = date.get(Calendar.DAY_OF_WEEK)
+
             val isWeekend =
                 dayOfWeek == Calendar.SATURDAY ||
-                dayOfWeek == Calendar.SUNDAY
+                    dayOfWeek == Calendar.SUNDAY
 
             val isToday = index == 0
 
-            backgroundPaint.color = if (isWeekend) {
-                Color.rgb(211, 47, 47)
-            } else {
-                Color.BLACK
-            }
-
-            backgroundPaint.alpha = if (isWeekend) {
-                255
-            } else {
-                51
-            }
-
-            canvas.drawRect(
+            val rect = android.graphics.RectF(
                 left,
                 tileTop,
                 right,
-                tileBottom,
+                tileBottom
+            )
+
+            val backgroundPaint = when {
+                isToday -> todayBackground
+                isWeekend -> weekendBackground
+                else -> weekdayBackground
+            }
+
+            canvas.drawRoundRect(
+                rect,
+                5f * density,
+                5f * density,
                 backgroundPaint
             )
 
-            if (isToday) {
-                canvas.drawRect(
-                    left,
-                    tileTop,
-                    right,
-                    tileBottom,
-                    todayPaint
-                )
-            }
+            val dayName = SimpleDateFormat(
+                "EEE",
+                Locale.getDefault()
+            ).format(date.time)
+
+            val dayNumber = date.get(
+                Calendar.DAY_OF_MONTH
+            ).toString()
 
             val centerX = (left + right) / 2f
 
-            val dayLabel = dayFormat.format(calendarDate.time)
-                .uppercase(Locale.getDefault())
+            val currentDayPaint =
+                if (isWeekend) weekendTextPaint else dayPaint
 
-            val dayBaseline =
-                tileTop + tileHeight * 0.32f -
-                    (dayPaint.ascent() + dayPaint.descent()) / 2f
-
-            val dateBaseline =
-                tileTop + tileHeight * 0.80f -
-                    (datePaint.ascent() + datePaint.descent()) / 2f
+            val currentDatePaint =
+                if (isWeekend) weekendDatePaint else datePaint
 
             canvas.drawText(
-                dayLabel,
+                dayName,
                 centerX,
-                dayBaseline,
-                dayPaint
+                tileTop + tileHeight * 0.36f,
+                currentDayPaint
             )
 
             canvas.drawText(
-                calendarDate.get(Calendar.DAY_OF_MONTH).toString(),
+                dayNumber,
                 centerX,
-                dateBaseline,
-                datePaint
+                tileTop + tileHeight * 0.90f,
+                currentDatePaint
             )
         }
     }
