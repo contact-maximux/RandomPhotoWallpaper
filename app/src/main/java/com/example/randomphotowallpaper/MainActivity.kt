@@ -3,7 +3,9 @@ package com.example.randomphotowallpaper
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import org.json.JSONArray
@@ -16,12 +18,15 @@ class MainActivity : Activity() {
     }
 
     private val worker = Executors.newSingleThreadExecutor()
-
     private val pickFolderRequest = 4102
+
+    private var pickingNightFolder = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-	WallpaperScheduler.schedule(this)
+
+        WallpaperScheduler.schedule(this)
+        requestNotificationPermissionIfNeeded()
 
         when (intent?.action) {
 
@@ -33,28 +38,50 @@ class MainActivity : Activity() {
                         "Wallpaper operation failed: ${e.message}"
                     }
 
-                    runOnUiThread {
-                        Toast.makeText(
-                            this,
-                            message,
-                            Toast.LENGTH_LONG
-                        ).show()
-                        finish()
-                    }
+                    showMessageAndFinish(message)
                 }
             }
 
             ACTION_ADD_FOLDER -> {
-                openFolderPicker()
+                openFolderPicker(false)
+            }
+
+            ACTION_TOGGLE_NIGHT -> {
+                toggleNightMode()
             }
 
             else -> {
                 if (getFolderUris().isEmpty()) {
-                    openFolderPicker()
+                    openFolderPicker(false)
                 } else {
                     changeWallpaper()
                 }
             }
+        }
+    }
+
+    private fun toggleNightMode() {
+        val nightFolder = prefs.getString(KEY_NIGHT_FOLDER, null)
+
+        if (prefs.getBoolean(KEY_NIGHT_MODE, false)) {
+            // Turn Night mode OFF.
+            prefs.edit()
+                .putBoolean(KEY_NIGHT_MODE, false)
+                .apply()
+
+            changeWallpaper()
+
+        } else if (nightFolder.isNullOrBlank()) {
+            // No Night folder yet. Ask user to select one.
+            openFolderPicker(true)
+
+        } else {
+            // Turn Night mode ON.
+            prefs.edit()
+                .putBoolean(KEY_NIGHT_MODE, true)
+                .apply()
+
+            changeWallpaper()
         }
     }
 
@@ -67,18 +94,25 @@ class MainActivity : Activity() {
                 "Could not change wallpaper: ${e.message}"
             }
 
-            runOnUiThread {
-                Toast.makeText(
-                    this,
-                    message,
-                    Toast.LENGTH_LONG
-                ).show()
-                finish()
-            }
+            showMessageAndFinish(message)
         }
     }
 
-    private fun openFolderPicker() {
+    private fun showMessageAndFinish(message: String) {
+        runOnUiThread {
+            Toast.makeText(
+                this,
+                message,
+                Toast.LENGTH_LONG
+            ).show()
+
+            finish()
+        }
+    }
+
+    private fun openFolderPicker(nightMode: Boolean) {
+        pickingNightFolder = nightMode
+
         val picker = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
@@ -118,10 +152,19 @@ class MainActivity : Activity() {
             } catch (_: SecurityException) {
             }
 
-            val folders = getFolderUris().toMutableSet()
-            folders.add(tree.toString())
+            if (pickingNightFolder) {
+                // Save separately from normal folders.
+                prefs.edit()
+                    .putString(KEY_NIGHT_FOLDER, tree.toString())
+                    .putBoolean(KEY_NIGHT_MODE, true)
+                    .apply()
 
-            saveFolderUris(folders)
+            } else {
+                // Add to the existing normal folder collection.
+                val folders = getFolderUris().toMutableSet()
+                folders.add(tree.toString())
+                saveFolderUris(folders)
+            }
 
             changeWallpaper()
 
@@ -168,6 +211,20 @@ class MainActivity : Activity() {
             .apply()
     }
 
+    private fun requestNotificationPermissionIfNeeded() {
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                501
+            )
+        }
+    }
+
     override fun onDestroy() {
         worker.shutdown()
         super.onDestroy()
@@ -177,10 +234,16 @@ class MainActivity : Activity() {
         private const val KEY_TREE = "selected_tree_uri"
         private const val KEY_FOLDERS = "selected_folder_uris"
 
+        private const val KEY_NIGHT_FOLDER = "night_mode_folder_uri"
+        private const val KEY_NIGHT_MODE = "night_mode_enabled"
+
         private const val ACTION_DELETE_AND_NEXT =
             "com.example.randomphotowallpaper.DELETE_AND_NEXT"
 
         private const val ACTION_ADD_FOLDER =
             "com.example.randomphotowallpaper.ADD_FOLDER"
+
+        private const val ACTION_TOGGLE_NIGHT =
+            "com.example.randomphotowallpaper.TOGGLE_NIGHT"
     }
 }

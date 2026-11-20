@@ -31,10 +31,16 @@ import kotlin.random.Random
 object WallpaperEngine {
 
     private const val PREFS = "wallpaper_state"
+
     private const val KEY_FOLDERS = "selected_folder_uris"
     private const val KEY_LEGACY_FOLDER = "selected_tree_uri"
     private const val KEY_CURRENT_IMAGE = "current_wallpaper_image_uri"
-    private const val HISTORY_FILE = "used_images.json"
+
+    private const val KEY_NIGHT_FOLDER = "night_mode_folder_uri"
+    private const val KEY_NIGHT_MODE = "night_mode_enabled"
+
+    private const val NORMAL_HISTORY_FILE = "used_images.json"
+    private const val NIGHT_HISTORY_FILE = "used_images_night.json"
 
     private const val CHANNEL_ID = "wallpaper_changes"
     private const val NOTIFICATION_ID = 701
@@ -45,18 +51,35 @@ object WallpaperEngine {
     private const val ACTION_ADD_FOLDER =
         "com.example.randomphotowallpaper.ADD_FOLDER"
 
+    private const val ACTION_TOGGLE_NIGHT =
+        "com.example.randomphotowallpaper.TOGGLE_NIGHT"
+
     private const val OVERLAY_ALPHA = 51 // 20% black
 
     // Main entry point for manual and scheduled wallpaper changes.
     @Synchronized
     fun changeWallpaper(context: Context) {
-        val app = context.applicationContext
 
+        val app = context.applicationContext
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val folders = readFolders(prefs)
+
+        val nightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
+
+        // Select folders according to the active mode.
+        val folders = if (nightMode) {
+            listOfNotNull(
+                prefs.getString(KEY_NIGHT_FOLDER, null)
+            )
+        } else {
+            readFolders(prefs).toList()
+        }
 
         require(folders.isNotEmpty()) {
-            "No folders selected."
+            if (nightMode) {
+                "No Night mode folder selected."
+            } else {
+                "No normal folders selected."
+            }
         }
 
         val images = mutableListOf<Uri>()
@@ -71,10 +94,17 @@ object WallpaperEngine {
         val uniqueImages = images.distinctBy { it.toString() }
 
         require(uniqueImages.isNotEmpty()) {
-            "No supported photos found."
+            "No supported photos found in the active folder."
         }
 
-        val historyFile = File(app.filesDir, HISTORY_FILE)
+        // Each mode has its own independent image history.
+        val historyName = if (nightMode) {
+            NIGHT_HISTORY_FILE
+        } else {
+            NORMAL_HISTORY_FILE
+        }
+
+        val historyFile = File(app.filesDir, historyName)
         val currentIds = uniqueImages.map { it.toString() }.toSet()
 
         val used = readHistory(historyFile)
@@ -89,6 +119,7 @@ object WallpaperEngine {
         val chosen = Uri.parse((currentIds - used).random())
 
         val resolution = targetResolution(app)
+
         val bitmap = decodeAndCrop(
             app,
             chosen,
@@ -122,9 +153,10 @@ object WallpaperEngine {
         )
     }
 
-    // Called by the notification's Delete & change next button.
+    // Delete the currently displayed original photo and change wallpaper.
     @Synchronized
     fun deleteCurrentAndChange(context: Context): String {
+
         val app = context.applicationContext
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -142,12 +174,18 @@ object WallpaperEngine {
                 )
 
                 if (deleted) {
+                    // Remove it from both histories.
                     removeFromHistory(app, current)
+
                     message = "Previous photo deleted."
-                    prefs.edit().remove(KEY_CURRENT_IMAGE).apply()
+
+                    prefs.edit()
+                        .remove(KEY_CURRENT_IMAGE)
+                        .apply()
                 } else {
                     message = "Could not delete previous photo."
                 }
+
             } catch (_: Exception) {
                 message = "Could not delete photo. Check folder write access."
             }
@@ -164,21 +202,29 @@ object WallpaperEngine {
     private fun readFolders(
         prefs: android.content.SharedPreferences
     ): Set<String> {
+
         val raw = prefs.getString(KEY_FOLDERS, null)
 
         if (!raw.isNullOrBlank()) {
             return try {
                 val array = JSONArray(raw)
+
                 (0 until array.length())
                     .map { array.getString(it) }
                     .toSet()
+
             } catch (_: Exception) {
                 emptySet()
             }
         }
 
         val legacy = prefs.getString(KEY_LEGACY_FOLDER, null)
-        return if (legacy.isNullOrBlank()) emptySet() else setOf(legacy)
+
+        return if (legacy.isNullOrBlank()) {
+            emptySet()
+        } else {
+            setOf(legacy)
+        }
     }
 
     // Only direct children are scanned. No subdirectories.
@@ -187,6 +233,7 @@ object WallpaperEngine {
         tree: Uri,
         output: MutableList<Uri>
     ) {
+
         val rootId = DocumentsContract.getTreeDocumentId(tree)
 
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(
@@ -221,11 +268,13 @@ object WallpaperEngine {
             )
 
             while (cursor.moveToNext()) {
+
                 val id = cursor.getString(idCol)
                 val mime = cursor.getString(mimeCol) ?: ""
                 val name = cursor.getString(nameCol) ?: ""
 
                 if (!name.startsWith(".") && mime.startsWith("image/")) {
+
                     output.add(
                         DocumentsContract.buildDocumentUriUsingTree(
                             tree,
@@ -238,6 +287,7 @@ object WallpaperEngine {
     }
 
     private fun readHistory(file: File): Set<String> {
+
         if (!file.exists()) return emptySet()
 
         return try {
@@ -250,6 +300,7 @@ object WallpaperEngine {
                         ?.let { add(it) }
                 }
             }
+
         } catch (_: Exception) {
             emptySet()
         }
@@ -260,12 +311,13 @@ object WallpaperEngine {
         file: File,
         used: Set<String>
     ) {
+
         val array = JSONArray()
         used.forEach { array.put(it) }
 
         val temp = File(
             context.filesDir,
-            "$HISTORY_FILE.tmp"
+            "${file.name}.tmp"
         )
 
         FileOutputStream(temp).use { stream ->
@@ -289,13 +341,25 @@ object WallpaperEngine {
         }
     }
 
-    private fun removeFromHistory(context: Context, id: String) {
-        val file = File(context.filesDir, HISTORY_FILE)
-        val remaining = readHistory(file) - id
-        writeHistory(context, file, remaining)
+    private fun removeFromHistory(
+        context: Context,
+        id: String
+    ) {
+
+        listOf(
+            NORMAL_HISTORY_FILE,
+            NIGHT_HISTORY_FILE
+        ).forEach { name ->
+
+            val file = File(context.filesDir, name)
+            val remaining = readHistory(file) - id
+
+            writeHistory(context, file, remaining)
+        }
     }
 
     private fun targetResolution(context: Context): Pair<Int, Int> {
+
         val metrics = DisplayMetrics()
 
         @Suppress("DEPRECATION")
@@ -314,6 +378,7 @@ object WallpaperEngine {
         targetWidth: Int,
         targetHeight: Int
     ): Bitmap {
+
         val bounds = BitmapFactory.Options().apply {
             inJustDecodeBounds = true
         }
@@ -369,11 +434,15 @@ object WallpaperEngine {
 
         val left = if (oriented.width > cropW) {
             Random.nextInt(oriented.width - cropW + 1)
-        } else 0
+        } else {
+            0
+        }
 
         val top = if (oriented.height > cropH) {
             Random.nextInt(oriented.height - cropH + 1)
-        } else 0
+        } else {
+            0
+        }
 
         val cropped = Bitmap.createBitmap(
             oriented,
@@ -421,6 +490,7 @@ object WallpaperEngine {
         uri: Uri,
         bitmap: Bitmap
     ): Bitmap {
+
         return try {
             val orientation = context.contentResolver
                 .openInputStream(uri)
@@ -461,12 +531,17 @@ object WallpaperEngine {
                 matrix,
                 true
             )
+
         } catch (_: Throwable) {
             bitmap
         }
     }
 
-    private fun displayName(context: Context, uri: Uri): String? {
+    private fun displayName(
+        context: Context,
+        uri: Uri
+    ): String? {
+
         return try {
             context.contentResolver.query(
                 uri,
@@ -477,6 +552,7 @@ object WallpaperEngine {
             )?.use {
                 if (it.moveToFirst()) it.getString(0) else null
             }
+
         } catch (_: Exception) {
             null
         }
@@ -486,6 +562,7 @@ object WallpaperEngine {
         context: Context,
         photoName: String
     ) {
+
         if (
             Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(
@@ -509,6 +586,13 @@ object WallpaperEngine {
             )
         }
 
+        val prefs = context.getSharedPreferences(
+            PREFS,
+            Context.MODE_PRIVATE
+        )
+
+        val nightMode = prefs.getBoolean(KEY_NIGHT_MODE, false)
+
         val deleteIntent = Intent(
             context,
             MainActivity::class.java
@@ -519,20 +603,34 @@ object WallpaperEngine {
             MainActivity::class.java
         ).setAction(ACTION_ADD_FOLDER)
 
+        val nightIntent = Intent(
+            context,
+            MainActivity::class.java
+        ).setAction(ACTION_TOGGLE_NIGHT)
+
+        val pendingFlags =
+            PendingIntent.FLAG_UPDATE_CURRENT or
+                PendingIntent.FLAG_IMMUTABLE
+
         val deletePending = PendingIntent.getActivity(
             context,
             101,
             deleteIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                PendingIntent.FLAG_IMMUTABLE
+            pendingFlags
         )
 
         val addPending = PendingIntent.getActivity(
             context,
             102,
             addIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                PendingIntent.FLAG_IMMUTABLE
+            pendingFlags
+        )
+
+        val nightPending = PendingIntent.getActivity(
+            context,
+            103,
+            nightIntent,
+            pendingFlags
         )
 
         val builder = if (Build.VERSION.SDK_INT >= 26) {
@@ -550,13 +648,18 @@ object WallpaperEngine {
                 .setAutoCancel(true)
                 .addAction(
                     android.R.drawable.ic_menu_delete,
-                    "Delete & change next",
+                    "Delete",
                     deletePending
                 )
                 .addAction(
                     android.R.drawable.ic_menu_add,
-                    "Add more folder",
+                    "Add folder",
                     addPending
+                )
+                .addAction(
+                    android.R.drawable.ic_menu_day,
+                    if (nightMode) "Night mode: ON" else "Night mode: OFF",
+                    nightPending
                 )
                 .build()
         )
