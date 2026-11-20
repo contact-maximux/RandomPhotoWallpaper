@@ -45,15 +45,9 @@ object WallpaperEngine {
     private const val CHANNEL_ID = "wallpaper_changes"
     private const val NOTIFICATION_ID = 701
 
-    private const val ACTION_DELETE =
-        "com.example.randomphotowallpaper.DELETE_AND_NEXT"
-
-    private const val ACTION_ADD_FOLDER =
-        "com.example.randomphotowallpaper.ADD_FOLDER"
-
-    private const val ACTION_TOGGLE_NIGHT =
-        "com.example.randomphotowallpaper.TOGGLE_NIGHT"
-
+    private const val ACTION_DELETE = "notepad.autowall.DELETE_AND_NEXT"
+    private const val ACTION_ADD_FOLDER = "notepad.autowall.ADD_FOLDER"
+    private const val ACTION_TOGGLE_NIGHT = "notepad.autowall.TOGGLE_NIGHT"
     private const val OVERLAY_ALPHA = 71 // 20% black
 
     // Main entry point for manual and scheduled wallpaper changes.
@@ -446,34 +440,17 @@ showNotification(
         
 val targetRatio = targetWidth.toFloat() / targetHeight
 
-// Calculate the maximum crop area matching screen aspect ratio.
-val baseCropW: Int
-val baseCropH: Int
+val cropW: Int
+val cropH: Int
 
 if (oriented.width.toFloat() / oriented.height > targetRatio) {
-    baseCropH = oriented.height
-    baseCropW = (oriented.height * targetRatio)
-        .toInt()
-        .coerceIn(1, oriented.width)
+    cropH = oriented.height
+    cropW = (oriented.height * targetRatio).toInt()
 } else {
-    baseCropW = oriented.width
-    baseCropH = (oriented.width / targetRatio)
-        .toInt()
-        .coerceIn(1, oriented.height)
+    cropW = oriented.width
+    cropH = (oriented.width / targetRatio).toInt()
 }
 
-// Apply 30% zoom before choosing a random crop.
-val zoomFactor = 1.30f
-
-val cropW = (baseCropW / zoomFactor)
-    .toInt()
-    .coerceAtLeast(1)
-
-val cropH = (baseCropH / zoomFactor)
-    .toInt()
-    .coerceAtLeast(1)
-
-// Randomly select the crop position.
 val left = if (oriented.width > cropW) {
     Random.nextInt(oriented.width - cropW + 1)
 } else {
@@ -493,7 +470,6 @@ val cropped = Bitmap.createBitmap(
     cropW,
     cropH
 )
-
         if (cropped !== oriented) oriented.recycle()
 
         val scaled = Bitmap.createScaledBitmap(

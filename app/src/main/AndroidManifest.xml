@@ -5,7 +5,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="Random Photo Wallpaper"
+        android:label="Night Mode Wallpaper"
         android:theme="@android:style/Theme.Translucent.NoTitleBar"
         android:usesCleartextTraffic="false">
 

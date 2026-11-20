@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.randomphotowallpaper"
+    namespace = "notepad.autowall"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.randomphotowallpaper"
+        applicationId = "notepad.autowall"
         minSdk = 28
         targetSdk = 35
         versionCode = 1
